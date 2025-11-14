@@ -66,17 +66,32 @@ node ec2ez.js -h
 ### Examples
 
 ```bash
-# Example: Endpoint with 'url' parameter
-node ec2ez.js http://vulnerable-site.com/proxy
+# Example 1: Endpoint with 'url' parameter
+node ec2ez.js http://vulnerable-site.com/proxy?url=
 
-# Example: Different endpoint
-node ec2ez.js http://api.example.com/fetch
+# Example 2: Endpoint with 'target' parameter
+node ec2ez.js http://api.example.com/fetch?target=
 
-# Example: Custom path
-node ec2ez.js https://target.com/api/v1/download
+# Example 3: Endpoint with 'endpoint' parameter
+node ec2ez.js https://target.com/download?endpoint=
+
+# Example 4: No parameter specified (defaults to 'url')
+node ec2ez.js http://site.com/proxy
 ```
 
 The URL should point to any endpoint vulnerable to SSRF that can forward requests to AWS IMDS (169.254.169.254).
+
+### Parameter Auto-Detection
+
+**The tool automatically detects the SSRF parameter name from your URL!**
+
+Simply include the query parameter in the URL you provide:
+- `http://site.com/proxy?url=` → Tool uses `url`
+- `http://site.com/fetch?target=` → Tool uses `target`
+- `http://site.com/download?endpoint=` → Tool uses `endpoint`
+- `http://site.com/proxy` → Tool defaults to `url`
+
+No configuration needed - just pass the URL with the parameter and the tool figures it out automatically.
 
 ### Expected Endpoint Behavior
 
@@ -94,8 +109,6 @@ The vulnerable endpoint should:
 - Support both GET and PUT requests (for IMDSv2 token generation)
 - Return the response from the target URL
 - Be able to reach 169.254.169.254 (AWS IMDS)
-
-**Configuration:** By default, the tool uses `?url=` as the parameter name. To use a different parameter name (e.g., `?target=`, `?endpoint=`), modify `CONFIG.ssrf.paramName` in `src/config.js`.
 
 ## Execution Flow
 
@@ -178,21 +191,20 @@ Default configuration in `src/config.js`:
 
 ```javascript
 export const CONFIG = {
-  ssrf: {
-    paramName: "url",  // Change this to match your SSRF endpoint parameter
-  },
   imdsv2: {
     baseUrl: "http://169.254.169.254",
-    endpoints: {
-      token: "/latest/api/token",
-      iamMetadata: "/latest/meta-data/iam/security-credentials",
-    },
   },
   aws: {
-    defaultRegion: "il-central-1",
+    defaultRegion: "il-central-1",  // Change if needed
+  },
+  ec2: {
+    ami: "ami-006183c868a62af95",   // Region-specific AMI
+    instanceType: "t3.micro",
   },
 };
 ```
+
+**Note:** The SSRF parameter name is automatically detected from the URL you provide - no manual configuration needed!
 
 ## Output
 

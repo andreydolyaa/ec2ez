@@ -65,3 +65,25 @@ ${COLORS.cyan}    ════════════════════�
 `;
   console.log(banner);
 }
+
+export function extractSSRFParam(url) {
+  try {
+    const urlObj = new URL(url);
+    const params = urlObj.searchParams;
+
+    // If URL already has a query parameter, extract the first one
+    if (params.keys().next().value) {
+      const paramName = params.keys().next().value;
+      logInfo(`Auto-detected SSRF parameter: ${paramName}`);
+      return paramName;
+    }
+
+    // Otherwise, default to 'url'
+    logInfo("No query parameter found in URL, defaulting to 'url'");
+    return "url";
+  } catch (error) {
+    // If URL parsing fails, default to 'url'
+    logWarning("Could not parse URL, defaulting to 'url' parameter");
+    return "url";
+  }
+}

