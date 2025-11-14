@@ -35,6 +35,9 @@ function generateFunnyInstanceName() {
 }
 
 export const CONFIG = {
+  ssrf: {
+    paramName: "url",
+  },
   imdsv2: {
     baseUrl: "http://169.254.169.254",
     endpoints: {

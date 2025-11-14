@@ -37,10 +37,10 @@ import { SessionSummary } from "./src/summary.js";
 
 function displayHelp() {
   console.log(`
-${COLORS.cyan}EC2-KILLER - AWS IMDSv2 Exploitation Tool${COLORS.reset}
+${COLORS.cyan}EC2EZ - AWS IMDSv2 Exploitation Tool${COLORS.reset}
 
 ${COLORS.bright}USAGE:${COLORS.reset}
-  node killer.js <ssrf-endpoint-url>
+  node ec2ez.js <ssrf-endpoint-url>
 
 ${COLORS.bright}ARGUMENTS:${COLORS.reset}
   ${COLORS.green}<ssrf-endpoint-url>${COLORS.reset}    Full URL of ANY endpoint vulnerable to SSRF
@@ -52,17 +52,17 @@ ${COLORS.bright}OPTIONS:${COLORS.reset}
 
 ${COLORS.bright}EXAMPLES:${COLORS.reset}
   ${COLORS.dim}# Example 1: Standard proxy endpoint${COLORS.reset}
-  node killer.js http://vulnerable-site.com/proxy
+  node ec2ez.js http://vulnerable-site.com/proxy
 
   ${COLORS.dim}# Example 2: API fetch endpoint${COLORS.reset}
-  node killer.js http://api.example.com/fetch
+  node ec2ez.js http://api.example.com/fetch
 
   ${COLORS.dim}# Example 3: Download endpoint${COLORS.reset}
-  node killer.js https://target.com/api/v1/download
+  node ec2ez.js https://target.com/api/v1/download
 
-  ${COLORS.dim}# Tool appends: ?url=http://169.254.169.254/...${COLORS.reset}
-  ${COLORS.dim}# If endpoint uses different param (target, endpoint, source, etc.)${COLORS.reset}
-  ${COLORS.dim}# you may need to modify src/imds.js${COLORS.reset}
+  ${COLORS.dim}# Tool appends: ?url=http://169.254.169.254/... by default${COLORS.reset}
+  ${COLORS.dim}# To use different param name (target, endpoint, etc.),${COLORS.reset}
+  ${COLORS.dim}# modify CONFIG.ssrf.paramName in src/config.js${COLORS.reset}
 
 ${COLORS.bright}WHAT IT DOES:${COLORS.reset}
   1. Tests if the proxy is vulnerable to SSRF
@@ -87,7 +87,7 @@ ${COLORS.bright}SECURITY NOTICE:${COLORS.reset}
   ${COLORS.yellow}⚠  Always obtain written permission before testing${COLORS.reset}
 
 ${COLORS.bright}MORE INFO:${COLORS.reset}
-  GitHub: https://github.com/yourusername/ec2-killer
+  GitHub: https://github.com/yourusername/ec2ez
   Docs:   README.md
 `);
 }
