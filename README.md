@@ -254,27 +254,6 @@ node ec2ez.js http://ctf-challenge.com/api/fetch
 #    - Provides commands to access objects
 ```
 
-## Security Considerations
-
-### For Defenders
-
-To protect against this tool:
-- Disable IMDSv1 and enforce IMDSv2 with hop limit = 1
-- Use VPC endpoints with restrictive policies
-- Implement egress filtering to block access to 169.254.169.254
-- Use IAM role least privilege (minimal permissions)
-- Enable CloudTrail logging for credential usage
-- Use IMDSv2 session token TTL limits
-- Implement Web Application Firewalls (WAF) to detect SSRF patterns
-
-### For Pentesters
-
-- Always have written authorization before testing
-- Document all actions taken during testing
-- Securely handle and destroy extracted credentials after testing
-- Report findings responsibly
-- Follow responsible disclosure practices
-
 ## Troubleshooting
 
 ### Connection Refused
@@ -305,7 +284,3 @@ Credentials are invalid in all tested regions
 ✗ Role has no S3 access
 ```
 **This is normal** - try other discovered roles or check the summary for bucket names
-
-## License
-
-MIT License - see LICENSE file for details
