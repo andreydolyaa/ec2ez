@@ -1,8 +1,8 @@
 {
-  "name": "ec2-killer",
+  "name": "ec2ez",
   "version": "1.0.0",
   "description": "",
-  "main": "killer.js",
+  "main": "ec2ez.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
