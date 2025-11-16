@@ -150,6 +150,11 @@ button:disabled {
   color: #fff;
 }
 
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
 /* Input */
 input, textarea {
   font-family: var(--font-sans);

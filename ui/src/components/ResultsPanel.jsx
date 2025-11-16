@@ -1,52 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './ResultsPanel.css';
 
 export default function ResultsPanel({ sessionData, isRunning }) {
   const [expandedSection, setExpandedSection] = useState(null);
-  const [s3Buckets, setS3Buckets] = useState([]);
-  const [secrets, setSecrets] = useState([]);
-  const [ssmParams, setSSMParams] = useState([]);
+  const [data, setData] = useState({
+    s3Buckets: [],
+    secrets: [],
+    ssmParams: [],
+    iamUsers: [],
+    iamRoles: [],
+    lambdaFunctions: [],
+    ec2Instances: [],
+    logGroups: [],
+  });
   const [loading, setLoading] = useState({});
+
+  // Auto-update S3 buckets when sessionData changes
+  useEffect(() => {
+    if (sessionData.s3Buckets && sessionData.s3Buckets.length > 0) {
+      setData(prev => ({ ...prev, s3Buckets: sessionData.s3Buckets }));
+    }
+  }, [sessionData.s3Buckets]);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const loadS3Buckets = async () => {
-    setLoading(prev => ({ ...prev, s3: true }));
+  const loadData = async (type, endpoint, dataKey) => {
+    setLoading(prev => ({ ...prev, [type]: true }));
     try {
-      const res = await axios.get('/api/s3/buckets');
-      setS3Buckets(Array.isArray(res.data.buckets) ? res.data.buckets : []);
+      const res = await axios.get(endpoint);
+      const result = res.data[dataKey];
+      setData(prev => ({ ...prev, [type]: Array.isArray(result) ? result : [] }));
     } catch (error) {
-      console.error('Error loading S3 buckets:', error);
-      setS3Buckets([]);
+      console.error(`Error loading ${type}:`, error);
+      setData(prev => ({ ...prev, [type]: [] }));
     }
-    setLoading(prev => ({ ...prev, s3: false }));
-  };
-
-  const loadSecrets = async () => {
-    setLoading(prev => ({ ...prev, secrets: true }));
-    try {
-      const res = await axios.get('/api/secrets/list');
-      setSecrets(Array.isArray(res.data.secrets) ? res.data.secrets : []);
-    } catch (error) {
-      console.error('Error loading secrets:', error);
-      setSecrets([]);
-    }
-    setLoading(prev => ({ ...prev, secrets: false }));
-  };
-
-  const loadSSMParams = async () => {
-    setLoading(prev => ({ ...prev, ssm: true }));
-    try {
-      const res = await axios.get('/api/ssm/parameters');
-      setSSMParams(Array.isArray(res.data.parameters) ? res.data.parameters : []);
-    } catch (error) {
-      console.error('Error loading SSM parameters:', error);
-      setSSMParams([]);
-    }
-    setLoading(prev => ({ ...prev, ssm: false }));
+    setLoading(prev => ({ ...prev, [type]: false }));
   };
 
   const hasData = sessionData.accountId || sessionData.roles?.length > 0;
@@ -54,194 +45,299 @@ export default function ResultsPanel({ sessionData, isRunning }) {
   return (
     <div className="results-panel">
       <div className="results-header">
-        <h3>Session Data</h3>
+        <h3>Actions & Data</h3>
       </div>
 
       {!hasData && !isRunning && (
         <div className="results-empty">
           <p>No data yet</p>
-          <span className="text-muted">Start an exploitation to see results</span>
+          <span className="text-muted">Start exploitation to see results</span>
         </div>
       )}
 
       {isRunning && !hasData && (
         <div className="results-empty">
           <span className="spinner"></span>
-          <p>Running exploitation...</p>
+          <p>Running...</p>
         </div>
       )}
 
       {hasData && (
         <div className="results-content">
-          {/* IMDSv2 Token */}
+          {/* Token */}
           {sessionData.token && (
-            <div className="result-section">
-              <button
-                className="section-header"
-                onClick={() => toggleSection('token')}
-              >
-                <span>IMDSv2 Token</span>
-                <span className="badge badge-success">Active</span>
-              </button>
-              {expandedSection === 'token' && (
-                <div className="section-body">
-                  <code className="token-display">{sessionData.token}</code>
-                  <p className="text-muted" style={{ marginTop: '8px', fontSize: '11px' }}>
-                    TTL: 6 hours
-                  </p>
-                </div>
-              )}
-            </div>
+            <Section
+              title="IMDSv2 Token"
+              badge={<span className="badge badge-success">Active</span>}
+              expanded={expandedSection === 'token'}
+              onToggle={() => toggleSection('token')}
+            >
+              <code className="token-display">{sessionData.token}</code>
+              <p className="text-muted" style={{ marginTop: '8px', fontSize: '11px' }}>TTL: 6 hours</p>
+            </Section>
           )}
 
-          {/* IAM Roles */}
-          {sessionData.roles && sessionData.roles.length > 0 && (
-            <div className="result-section">
-              <button
-                className="section-header"
-                onClick={() => toggleSection('roles')}
-              >
-                <span>IAM Roles</span>
-                <span className="badge badge-info">{sessionData.roles.length}</span>
-              </button>
-              {expandedSection === 'roles' && (
-                <div className="section-body">
-                  <ul className="role-list">
-                    {sessionData.roles.map((role, idx) => (
-                      <li key={idx}>{role}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+          {/* Roles */}
+          {sessionData.roles?.length > 0 && (
+            <Section
+              title="IAM Roles"
+              badge={<span className="badge badge-info">{sessionData.roles.length}</span>}
+              expanded={expandedSection === 'roles'}
+              onToggle={() => toggleSection('roles')}
+            >
+              <ul className="resource-list">
+                {sessionData.roles.map((role, idx) => (
+                  <li key={idx}><code>{role}</code></li>
+                ))}
+              </ul>
+            </Section>
           )}
 
           {/* Permissions */}
-          {sessionData.permissions && sessionData.permissions.totalPermissions > 0 && (
-            <div className="result-section">
-              <button
-                className="section-header"
-                onClick={() => toggleSection('permissions')}
-              >
-                <span>Permissions</span>
-                <span className="badge badge-warning">
-                  {sessionData.permissions.totalPermissions}
-                </span>
-              </button>
-              {expandedSection === 'permissions' && (
-                <div className="section-body">
-                  <div className="perm-list">
-                    {sessionData.permissions.allPermissions.map((perm, idx) => (
-                      <div key={idx} className="perm-item">
-                        <code>{perm}</code>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+          {sessionData.permissions?.totalPermissions > 0 && (
+            <Section
+              title="Permissions"
+              badge={<span className="badge badge-warning">{sessionData.permissions.totalPermissions}</span>}
+              expanded={expandedSection === 'permissions'}
+              onToggle={() => toggleSection('permissions')}
+            >
+              <div className="perm-list">
+                {sessionData.permissions.allPermissions.map((perm, idx) => (
+                  <div key={idx} className="perm-item"><code>{perm}</code></div>
+                ))}
+              </div>
+            </Section>
           )}
 
           {/* S3 Buckets */}
-          <div className="result-section">
-            <button
-              className="section-header"
-              onClick={() => {
-                toggleSection('s3');
-                if (expandedSection !== 's3' && s3Buckets.length === 0) {
-                  loadS3Buckets();
-                }
-              }}
-            >
-              <span>S3 Buckets</span>
-              {s3Buckets.length > 0 && (
-                <span className="badge badge-info">{s3Buckets.length}</span>
-              )}
-            </button>
-            {expandedSection === 's3' && (
-              <div className="section-body">
-                {loading.s3 ? (
-                  <div className="loading"><span className="spinner"></span> Loading...</div>
-                ) : s3Buckets.length > 0 ? (
-                  <ul className="resource-list">
-                    {s3Buckets.map((bucket, idx) => (
-                      <li key={idx}><code>{bucket}</code></li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted">No buckets found</p>
-                )}
-              </div>
+          <Section
+            title="S3 Buckets"
+            badge={data.s3Buckets.length > 0 && <span className="badge badge-info">{data.s3Buckets.length}</span>}
+            expanded={expandedSection === 's3'}
+            onToggle={() => {
+              toggleSection('s3');
+              if (expandedSection !== 's3' && data.s3Buckets.length === 0) {
+                loadData('s3Buckets', '/api/s3/buckets', 'buckets');
+              }
+            }}
+          >
+            {loading.s3Buckets ? (
+              <div className="loading"><span className="spinner"></span> Loading...</div>
+            ) : data.s3Buckets.length > 0 ? (
+              <ul className="resource-list">
+                {data.s3Buckets.map((bucket, idx) => (
+                  <li key={idx}><code>{bucket}</code></li>
+                ))}
+              </ul>
+            ) : (
+              <button className="btn-primary btn-sm" onClick={() => loadData('s3Buckets', '/api/s3/buckets', 'buckets')}>
+                List Buckets
+              </button>
             )}
-          </div>
+          </Section>
 
           {/* Secrets Manager */}
-          <div className="result-section">
-            <button
-              className="section-header"
-              onClick={() => {
-                toggleSection('secrets');
-                if (expandedSection !== 'secrets' && secrets.length === 0) {
-                  loadSecrets();
-                }
-              }}
-            >
-              <span>Secrets Manager</span>
-              {secrets.length > 0 && (
-                <span className="badge badge-danger">{secrets.length}</span>
-              )}
-            </button>
-            {expandedSection === 'secrets' && (
-              <div className="section-body">
-                {loading.secrets ? (
-                  <div className="loading"><span className="spinner"></span> Loading...</div>
-                ) : secrets.length > 0 ? (
-                  <ul className="resource-list">
-                    {secrets.map((secret, idx) => (
-                      <li key={idx}><code>{secret}</code></li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted">No secrets found</p>
-                )}
-              </div>
+          <Section
+            title="Secrets Manager"
+            badge={data.secrets.length > 0 && <span className="badge badge-danger">{data.secrets.length}</span>}
+            expanded={expandedSection === 'secrets'}
+            onToggle={() => {
+              toggleSection('secrets');
+              if (expandedSection !== 'secrets' && data.secrets.length === 0) {
+                loadData('secrets', '/api/secrets/list', 'secrets');
+              }
+            }}
+          >
+            {loading.secrets ? (
+              <div className="loading"><span className="spinner"></span> Loading...</div>
+            ) : data.secrets.length > 0 ? (
+              <ul className="resource-list">
+                {data.secrets.map((secret, idx) => (
+                  <li key={idx}><code>{secret}</code></li>
+                ))}
+              </ul>
+            ) : (
+              <button className="btn-primary btn-sm" onClick={() => loadData('secrets', '/api/secrets/list', 'secrets')}>
+                List Secrets
+              </button>
             )}
-          </div>
+          </Section>
 
           {/* SSM Parameters */}
-          <div className="result-section">
-            <button
-              className="section-header"
-              onClick={() => {
-                toggleSection('ssm');
-                if (expandedSection !== 'ssm' && ssmParams.length === 0) {
-                  loadSSMParams();
-                }
-              }}
-            >
-              <span>SSM Parameters</span>
-              {ssmParams.length > 0 && (
-                <span className="badge badge-warning">{ssmParams.length}</span>
-              )}
-            </button>
-            {expandedSection === 'ssm' && (
-              <div className="section-body">
-                {loading.ssm ? (
-                  <div className="loading"><span className="spinner"></span> Loading...</div>
-                ) : ssmParams.length > 0 ? (
-                  <ul className="resource-list">
-                    {ssmParams.map((param, idx) => (
-                      <li key={idx}><code>{param}</code></li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted">No parameters found</p>
-                )}
-              </div>
+          <Section
+            title="SSM Parameters"
+            badge={data.ssmParams.length > 0 && <span className="badge badge-warning">{data.ssmParams.length}</span>}
+            expanded={expandedSection === 'ssm'}
+            onToggle={() => {
+              toggleSection('ssm');
+              if (expandedSection !== 'ssm' && data.ssmParams.length === 0) {
+                loadData('ssmParams', '/api/ssm/parameters', 'parameters');
+              }
+            }}
+          >
+            {loading.ssmParams ? (
+              <div className="loading"><span className="spinner"></span> Loading...</div>
+            ) : data.ssmParams.length > 0 ? (
+              <ul className="resource-list">
+                {data.ssmParams.map((param, idx) => (
+                  <li key={idx}><code>{param}</code></li>
+                ))}
+              </ul>
+            ) : (
+              <button className="btn-primary btn-sm" onClick={() => loadData('ssmParams', '/api/ssm/parameters', 'parameters')}>
+                List Parameters
+              </button>
             )}
-          </div>
+          </Section>
+
+          {/* IAM Users */}
+          <Section
+            title="IAM Users"
+            badge={data.iamUsers.length > 0 && <span className="badge badge-info">{data.iamUsers.length}</span>}
+            expanded={expandedSection === 'iamUsers'}
+            onToggle={() => {
+              toggleSection('iamUsers');
+              if (expandedSection !== 'iamUsers' && data.iamUsers.length === 0) {
+                loadData('iamUsers', '/api/iam/users', 'users');
+              }
+            }}
+          >
+            {loading.iamUsers ? (
+              <div className="loading"><span className="spinner"></span> Loading...</div>
+            ) : data.iamUsers.length > 0 ? (
+              <ul className="resource-list">
+                {data.iamUsers.map((user, idx) => (
+                  <li key={idx}><code>{user}</code></li>
+                ))}
+              </ul>
+            ) : (
+              <button className="btn-primary btn-sm" onClick={() => loadData('iamUsers', '/api/iam/users', 'users')}>
+                List IAM Users
+              </button>
+            )}
+          </Section>
+
+          {/* IAM Roles (from AWS, not IMDS) */}
+          <Section
+            title="IAM Roles (AWS)"
+            badge={data.iamRoles.length > 0 && <span className="badge badge-info">{data.iamRoles.length}</span>}
+            expanded={expandedSection === 'iamRolesAWS'}
+            onToggle={() => {
+              toggleSection('iamRolesAWS');
+              if (expandedSection !== 'iamRolesAWS' && data.iamRoles.length === 0) {
+                loadData('iamRoles', '/api/iam/roles', 'roles');
+              }
+            }}
+          >
+            {loading.iamRoles ? (
+              <div className="loading"><span className="spinner"></span> Loading...</div>
+            ) : data.iamRoles.length > 0 ? (
+              <ul className="resource-list">
+                {data.iamRoles.map((role, idx) => (
+                  <li key={idx}><code>{role}</code></li>
+                ))}
+              </ul>
+            ) : (
+              <button className="btn-primary btn-sm" onClick={() => loadData('iamRoles', '/api/iam/roles', 'roles')}>
+                List All IAM Roles
+              </button>
+            )}
+          </Section>
+
+          {/* Lambda Functions */}
+          <Section
+            title="Lambda Functions"
+            badge={data.lambdaFunctions.length > 0 && <span className="badge badge-info">{data.lambdaFunctions.length}</span>}
+            expanded={expandedSection === 'lambda'}
+            onToggle={() => {
+              toggleSection('lambda');
+              if (expandedSection !== 'lambda' && data.lambdaFunctions.length === 0) {
+                loadData('lambdaFunctions', '/api/lambda/functions', 'functions');
+              }
+            }}
+          >
+            {loading.lambdaFunctions ? (
+              <div className="loading"><span className="spinner"></span> Loading...</div>
+            ) : data.lambdaFunctions.length > 0 ? (
+              <ul className="resource-list">
+                {data.lambdaFunctions.map((fn, idx) => (
+                  <li key={idx}><code>{fn}</code></li>
+                ))}
+              </ul>
+            ) : (
+              <button className="btn-primary btn-sm" onClick={() => loadData('lambdaFunctions', '/api/lambda/functions', 'functions')}>
+                List Lambda Functions
+              </button>
+            )}
+          </Section>
+
+          {/* EC2 Instances */}
+          <Section
+            title="EC2 Instances"
+            badge={data.ec2Instances.length > 0 && <span className="badge badge-info">{data.ec2Instances.length}</span>}
+            expanded={expandedSection === 'ec2'}
+            onToggle={() => {
+              toggleSection('ec2');
+              if (expandedSection !== 'ec2' && data.ec2Instances.length === 0) {
+                loadData('ec2Instances', '/api/ec2/instances', 'instances');
+              }
+            }}
+          >
+            {loading.ec2Instances ? (
+              <div className="loading"><span className="spinner"></span> Loading...</div>
+            ) : data.ec2Instances.length > 0 ? (
+              <ul className="resource-list">
+                {data.ec2Instances.map((instance, idx) => (
+                  <li key={idx}><code>{instance}</code></li>
+                ))}
+              </ul>
+            ) : (
+              <button className="btn-primary btn-sm" onClick={() => loadData('ec2Instances', '/api/ec2/instances', 'instances')}>
+                List EC2 Instances
+              </button>
+            )}
+          </Section>
+
+          {/* CloudWatch Log Groups */}
+          <Section
+            title="CloudWatch Logs"
+            badge={data.logGroups.length > 0 && <span className="badge badge-info">{data.logGroups.length}</span>}
+            expanded={expandedSection === 'cloudwatch'}
+            onToggle={() => {
+              toggleSection('cloudwatch');
+              if (expandedSection !== 'cloudwatch' && data.logGroups.length === 0) {
+                loadData('logGroups', '/api/cloudwatch/log-groups', 'logGroups');
+              }
+            }}
+          >
+            {loading.logGroups ? (
+              <div className="loading"><span className="spinner"></span> Loading...</div>
+            ) : data.logGroups.length > 0 ? (
+              <ul className="resource-list">
+                {data.logGroups.map((lg, idx) => (
+                  <li key={idx}><code>{lg}</code></li>
+                ))}
+              </ul>
+            ) : (
+              <button className="btn-primary btn-sm" onClick={() => loadData('logGroups', '/api/cloudwatch/log-groups', 'logGroups')}>
+                List Log Groups
+              </button>
+            )}
+          </Section>
         </div>
       )}
+    </div>
+  );
+}
+
+function Section({ title, badge, expanded, onToggle, children }) {
+  return (
+    <div className="result-section">
+      <button className="section-header" onClick={onToggle}>
+        <span>{title}</span>
+        {badge}
+      </button>
+      {expanded && <div className="section-body">{children}</div>}
     </div>
   );
 }

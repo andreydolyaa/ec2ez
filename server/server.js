@@ -188,6 +188,9 @@ app.post('/api/start', async (req, res) => {
       const s3Results = await s3discovery.testS3Access();
       if (s3Results.buckets && s3Results.buckets.length > 0) {
         emitLog('success', `✓ Found ${s3Results.buckets.length} accessible S3 buckets`);
+        io.emit('sessionUpdate', {
+          s3Buckets: s3Results.buckets,
+        });
       }
     } catch (error) {
       emitLog('warning', 'S3 access test failed');
