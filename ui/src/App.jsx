@@ -18,6 +18,9 @@ export default function App() {
     accountId: null,
     region: null,
     token: null,
+    metadata: 0,
+    metadataDetails: {},
+    metadataSecrets: [],
   });
   const [socket, setSocket] = useState(null);
 
@@ -30,6 +33,7 @@ export default function App() {
     });
 
     newSocket.on('sessionUpdate', (data) => {
+      console.log('[SESSION UPDATE]', data);
       setSessionData((prev) => ({ ...prev, ...data }));
     });
 
@@ -52,6 +56,9 @@ export default function App() {
       accountId: null,
       region: null,
       token: null,
+      metadata: 0,
+      metadataDetails: {},
+      metadataSecrets: [],
       proxyUrl,
     });
 

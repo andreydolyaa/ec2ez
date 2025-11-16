@@ -20,6 +20,7 @@ export default function ResultsPanel({ sessionData, isRunning }) {
   });
   const [loading, setLoading] = useState({});
   const [modalData, setModalData] = useState(null);
+  const [fetchedData, setFetchedData] = useState(new Set());
 
   // Auto-update S3 buckets when sessionData changes
   useEffect(() => {
@@ -36,35 +37,41 @@ export default function ResultsPanel({ sessionData, isRunning }) {
     const hasPermission = (perm) => perms.some(p => p === perm || p === perm.split(':')[0] + ':*' || p === '*');
 
     // Auto-fetch IAM users
-    if (hasPermission('iam:ListUsers') && data.iamUsers.length === 0 && !loading.iamUsers) {
+    if (hasPermission('iam:ListUsers') && !fetchedData.has('iamUsers')) {
+      setFetchedData(prev => new Set(prev).add('iamUsers'));
       loadData('iamUsers', '/api/iam/users', 'users');
     }
 
     // Auto-fetch IAM roles
-    if (hasPermission('iam:ListRoles') && data.iamRoles.length === 0 && !loading.iamRoles) {
+    if (hasPermission('iam:ListRoles') && !fetchedData.has('iamRoles')) {
+      setFetchedData(prev => new Set(prev).add('iamRoles'));
       loadData('iamRoles', '/api/iam/roles', 'roles');
     }
 
     // Auto-fetch Secrets Manager
-    if (hasPermission('secretsmanager:ListSecrets') && data.secrets.length === 0 && !loading.secrets) {
+    if (hasPermission('secretsmanager:ListSecrets') && !fetchedData.has('secrets')) {
+      setFetchedData(prev => new Set(prev).add('secrets'));
       loadData('secrets', '/api/secrets/list', 'secrets');
     }
 
     // Auto-fetch SSM Parameters
-    if (hasPermission('ssm:DescribeParameters') && data.ssmParams.length === 0 && !loading.ssmParams) {
+    if (hasPermission('ssm:DescribeParameters') && !fetchedData.has('ssmParams')) {
+      setFetchedData(prev => new Set(prev).add('ssmParams'));
       loadData('ssmParams', '/api/ssm/parameters', 'parameters');
     }
 
     // Auto-fetch Lambda Functions
-    if (hasPermission('lambda:ListFunctions') && data.lambdaFunctions.length === 0 && !loading.lambdaFunctions) {
+    if (hasPermission('lambda:ListFunctions') && !fetchedData.has('lambdaFunctions')) {
+      setFetchedData(prev => new Set(prev).add('lambdaFunctions'));
       loadData('lambdaFunctions', '/api/lambda/functions', 'functions');
     }
 
     // Auto-fetch EC2 Instances
-    if (hasPermission('ec2:DescribeInstances') && data.ec2Instances.length === 0 && !loading.ec2Instances) {
+    if (hasPermission('ec2:DescribeInstances') && !fetchedData.has('ec2Instances')) {
+      setFetchedData(prev => new Set(prev).add('ec2Instances'));
       loadData('ec2Instances', '/api/ec2/instances', 'instances');
     }
-  }, [sessionData.permissions, data, loading]);
+  }, [sessionData.permissions, fetchedData]);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -73,7 +80,9 @@ export default function ResultsPanel({ sessionData, isRunning }) {
   const loadData = async (type, endpoint, dataKey) => {
     setLoading(prev => ({ ...prev, [type]: true }));
     try {
-      const res = await axios.get(`${API_URL}${endpoint}`);
+      const res = await axios.get(`${API_URL}${endpoint}`, {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       const result = res.data[dataKey];
       setData(prev => ({ ...prev, [type]: Array.isArray(result) ? result : [] }));
     } catch (error) {
@@ -249,10 +258,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
           )}
 
           {/* Metadata Section */}
-          {sessionData.metadata > 0 && sessionData.metadataDetails && (
+          {sessionData.metadataDetails && Object.keys(sessionData.metadataDetails).length > 0 && (
             <Section
               title="IMDS Metadata"
-              badge={<span className="badge badge-info">{sessionData.metadata} entries</span>}
+              badge={<span className="badge badge-info">{Object.keys(sessionData.metadataDetails).length} entries</span>}
               expanded={expandedSection === 'metadata'}
               onToggle={() => toggleSection('metadata')}
             >
@@ -265,15 +274,15 @@ export default function ResultsPanel({ sessionData, isRunning }) {
                     <div key={idx} className="metadata-entry">
                       <div className="metadata-path"><code>{path}</code></div>
                       <div className="metadata-value">
-                        {value.length > 100 ? (
+                        {String(value).length > 100 ? (
                           <>
-                            <pre className="metadata-value-short">{value.substring(0, 100)}...</pre>
-                            <button className="btn-link" onClick={() => setModalData({ title: path, content: value })}>
+                            <pre className="metadata-value-short">{String(value).substring(0, 100)}...</pre>
+                            <button className="btn-link" onClick={() => setModalData({ title: path, content: String(value) })}>
                               View Full Value
                             </button>
                           </>
                         ) : (
-                          <pre className="metadata-value-short">{value}</pre>
+                          <pre className="metadata-value-short">{String(value)}</pre>
                         )}
                       </div>
                     </div>
@@ -284,7 +293,7 @@ export default function ResultsPanel({ sessionData, isRunning }) {
           )}
 
           {/* Secrets Found in Metadata */}
-          {sessionData.metadataSecrets && sessionData.metadataSecrets.length > 0 && (
+          {sessionData.metadataSecrets && Array.isArray(sessionData.metadataSecrets) && sessionData.metadataSecrets.length > 0 && (
             <Section
               title="Secrets Found in Metadata"
               badge={<span className="badge badge-danger">{sessionData.metadataSecrets.length} secrets</span>}
@@ -300,7 +309,7 @@ export default function ResultsPanel({ sessionData, isRunning }) {
                     <div className="secret-header">
                       <code className="secret-path">{secret.path}</code>
                       <div className="secret-types">
-                        {secret.types.map((type, i) => (
+                        {secret.types && secret.types.map((type, i) => (
                           <span key={i} className="badge badge-danger" style={{ marginLeft: '4px', fontSize: '10px' }}>
                             {type}
                           </span>
@@ -308,15 +317,15 @@ export default function ResultsPanel({ sessionData, isRunning }) {
                       </div>
                     </div>
                     <div className="secret-value">
-                      {secret.value.length > 150 ? (
+                      {String(secret.value).length > 150 ? (
                         <>
-                          <pre className="secret-value-short">{secret.value.substring(0, 150)}...</pre>
-                          <button className="btn-link" onClick={() => setModalData({ title: `${secret.path} - ${secret.types.join(', ')}`, content: secret.value })}>
+                          <pre className="secret-value-short">{String(secret.value).substring(0, 150)}...</pre>
+                          <button className="btn-link" onClick={() => setModalData({ title: `${secret.path} - ${secret.types.join(', ')}`, content: String(secret.value) })}>
                             View Full Value
                           </button>
                         </>
                       ) : (
-                        <pre className="secret-value-short">{secret.value}</pre>
+                        <pre className="secret-value-short">{String(secret.value)}</pre>
                       )}
                     </div>
                   </div>
