@@ -482,15 +482,10 @@ export async function runInteractiveMenu(permissionResults) {
       logSuccess(`${selectedAction.name} completed successfully!`);
       logSeparator();
 
-      const continueChoice = await askQuestion(
+      await askQuestion(
         rl,
-        `${COLORS.yellow}Press Enter to continue or type 'exit' to quit: ${COLORS.reset}`
+        `${COLORS.yellow}Press Enter to continue...${COLORS.reset}`
       );
-
-      if (continueChoice.toLowerCase() === "exit") {
-        logSuccess("Exiting interactive menu. Goodbye!");
-        running = false;
-      }
     } catch (error) {
       logSeparator();
       logWarning(
@@ -498,15 +493,10 @@ export async function runInteractiveMenu(permissionResults) {
       );
       logSeparator();
 
-      const continueChoice = await askQuestion(
+      await askQuestion(
         rl,
-        `${COLORS.yellow}Press Enter to continue or type 'exit' to quit: ${COLORS.reset}`
+        `${COLORS.yellow}Press Enter to continue...${COLORS.reset}`
       );
-
-      if (continueChoice.toLowerCase() === "exit") {
-        logSuccess("Exiting interactive menu. Goodbye!");
-        running = false;
-      }
     }
   }
 
