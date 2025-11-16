@@ -36,6 +36,7 @@ import {
   extractS3References,
 } from "./src/s3discovery.js";
 import { SessionSummary } from "./src/summary.js";
+import { analyzeUserData } from "./src/userdata.js";
 
 function displayHelp() {
   console.log(`
@@ -244,6 +245,19 @@ async function main() {
 
     const { urls: presignedURLs, metadata } = await discoverPresignedURLs(proxyUrl, token);
     Object.assign(allMetadata, metadata);
+
+    // Analyze user data for secrets
+    const userDataAnalysis = await analyzeUserData(proxyUrl, token);
+    if (userDataAnalysis.found) {
+      summary.setUserData({
+        found: true,
+        hasSecrets: userDataAnalysis.secrets.length > 0,
+        secretCount: userDataAnalysis.secrets.length,
+        criticalSecretCount: userDataAnalysis.analysis.criticalCount,
+        wasDecoded: userDataAnalysis.wasDecoded,
+        isCloudInit: userDataAnalysis.cloudInit?.isCloudInit || false,
+      });
+    }
 
     let discoveredBucketNames = [];
 

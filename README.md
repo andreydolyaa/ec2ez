@@ -155,13 +155,14 @@ The vulnerable endpoint should:
 3. IAM Role Enumeration: Discovers all available IAM roles
 4. Credential Extraction: Retrieves AWS credentials for each role
 5. IMDS Metadata Enumeration: Recursively explores all metadata paths
-6. Credential Validation: Tests credentials across multiple AWS regions
-7. Permission Discovery: Enumerates IAM policies and dangerous permissions
-8. PassRole Detection: Identifies privilege escalation vectors
-9. S3 Access Testing: Tests S3 access with each role
-10. Bucket Discovery: Tests bucket names found in IMDS metadata
-11. Interactive Menu: Provides permission-based actions
-12. Summary Report: Displays comprehensive findings
+6. **User Data Extraction**: Extracts and analyzes EC2 user data for secrets
+7. Credential Validation: Tests credentials across multiple AWS regions
+8. Permission Discovery: Enumerates IAM policies and dangerous permissions
+9. PassRole Detection: Identifies privilege escalation vectors
+10. S3 Access Testing: Tests S3 access with each role
+11. Bucket Discovery: Tests bucket names found in IMDS metadata
+12. Interactive Menu: Provides permission-based actions
+13. Summary Report: Displays comprehensive findings
 
 ## What Gets Extracted
 
@@ -174,10 +175,29 @@ The vulnerable endpoint should:
 ### IMDS Metadata
 - IAM role information
 - Instance identity document
-- User data
 - Instance tags
 - Network interfaces
 - Security groups
+
+### User Data & Secrets
+- **Automatic extraction** from IMDS
+- **Base64 decoding** if encoded
+- **Secret detection** with 10+ pattern types:
+  - AWS Access Keys (AKIA...)
+  - AWS Secret Keys
+  - Private SSH Keys
+  - Passwords
+  - API Tokens & Keys
+  - Database URLs (postgres://, mysql://, etc.)
+  - URLs with embedded credentials
+  - JWT Tokens
+  - GitHub/Slack tokens
+- **Cloud-init parsing**:
+  - Package lists
+  - Startup commands
+  - Environment variables
+  - Write files configuration
+- **Severity classification**: CRITICAL, HIGH, MEDIUM
 
 ### S3 Information
 - Bucket names from metadata

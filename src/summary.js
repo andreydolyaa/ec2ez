@@ -28,6 +28,14 @@ export class SessionSummary {
         discovered: [],
         dangerous: [],
       },
+      userData: {
+        found: false,
+        hasSecrets: false,
+        secretCount: 0,
+        criticalSecretCount: 0,
+        wasDecoded: false,
+        isCloudInit: false,
+      },
       recommendations: [],
       timestamp: new Date().toISOString(),
     };
@@ -57,6 +65,10 @@ export class SessionSummary {
 
   setPermissions(data) {
     this.findings.permissions = { ...this.findings.permissions, ...data };
+  }
+
+  setUserData(data) {
+    this.findings.userData = { ...this.findings.userData, ...data };
   }
 
   addRecommendation(recommendation) {
@@ -119,6 +131,30 @@ export class SessionSummary {
         level: "info",
         category: "IMDS",
         message: "Large amount of IMDS metadata discovered - review for sensitive information",
+      });
+    }
+
+    if (this.findings.userData.found && this.findings.userData.criticalSecretCount > 0) {
+      recs.push({
+        level: "critical",
+        category: "User Data",
+        message: `Found ${this.findings.userData.criticalSecretCount} critical secret(s) in user data - IMMEDIATE ACTION REQUIRED`,
+      });
+    }
+
+    if (this.findings.userData.found && this.findings.userData.secretCount > 0) {
+      recs.push({
+        level: "warning",
+        category: "User Data",
+        message: `Found ${this.findings.userData.secretCount} potential secret(s) in user data - review and rotate credentials`,
+      });
+    }
+
+    if (this.findings.userData.found && this.findings.userData.isCloudInit) {
+      recs.push({
+        level: "info",
+        category: "User Data",
+        message: "Cloud-init configuration detected - review startup scripts for sensitive operations",
       });
     }
 
@@ -185,6 +221,33 @@ export class SessionSummary {
       }
     }
     console.log();
+
+    if (this.findings.userData.found) {
+      log(`${COLORS.bright}User Data:${COLORS.reset}`, null, "cyan");
+      logSuccess("  ✓ User data extracted from IMDS");
+
+      if (this.findings.userData.wasDecoded) {
+        logInfo("  ✓ Base64-encoded data decoded");
+      }
+
+      if (this.findings.userData.isCloudInit) {
+        logInfo("  ✓ Cloud-init configuration detected");
+      }
+
+      if (this.findings.userData.hasSecrets) {
+        if (this.findings.userData.criticalSecretCount > 0) {
+          log(
+            `  ⚠ CRITICAL: ${this.findings.userData.criticalSecretCount} critical secret(s) found`,
+            null,
+            "red"
+          );
+        }
+        logWarning(`  Total secrets found: ${this.findings.userData.secretCount}`);
+      } else {
+        log("  No secrets detected", null, "dim");
+      }
+      console.log();
+    }
 
     log(`${COLORS.bright}S3 Access:${COLORS.reset}`, null, "cyan");
     if (this.findings.s3.presignedUrls.length > 0) {
