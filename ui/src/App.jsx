@@ -10,6 +10,7 @@ const API_URL = '/api';
 
 export default function App() {
   const [proxyUrl, setProxyUrl] = useState('');
+  const [paramName, setParamName] = useState('url');
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState([]);
   const [sessionData, setSessionData] = useState({
@@ -44,6 +45,19 @@ export default function App() {
     e.preventDefault();
     if (!proxyUrl || isRunning) return;
 
+    // Build full URL with parameter
+    let fullUrl = proxyUrl.trim();
+    // Remove trailing slash
+    if (fullUrl.endsWith('/')) {
+      fullUrl = fullUrl.slice(0, -1);
+    }
+    // Add parameter if not already there
+    if (!fullUrl.includes('?')) {
+      fullUrl = `${fullUrl}?${paramName}=`;
+    } else if (!fullUrl.includes('=')) {
+      fullUrl = `${fullUrl}=`;
+    }
+
     setIsRunning(true);
     setLogs([]);
     setSessionData({
@@ -52,11 +66,11 @@ export default function App() {
       accountId: null,
       region: null,
       token: null,
-      proxyUrl,
+      proxyUrl: fullUrl,
     });
 
     try {
-      await axios.post(`${API_URL}/start`, { proxyUrl });
+      await axios.post(`${API_URL}/start`, { proxyUrl: fullUrl });
     } catch (error) {
       console.error('Error:', error);
       setIsRunning(false);
@@ -94,29 +108,45 @@ export default function App() {
 
       <div className="app-content">
         <div className="main-panel">
-          <form onSubmit={handleStart} className="input-form">
-            <input
-              type="text"
-              value={proxyUrl}
-              onChange={(e) => setProxyUrl(e.target.value)}
-              placeholder="Enter SSRF endpoint URL (e.g., http://target.com/proxy?url=)"
-              disabled={isRunning}
-              className="url-input"
-            />
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={!proxyUrl || isRunning}
-            >
-              {isRunning ? (
-                <>
-                  <span className="spinner"></span> Running
-                </>
-              ) : (
-                'Start Exploitation'
-              )}
-            </button>
-          </form>
+          <div>
+            <form onSubmit={handleStart} className="input-form">
+              <input
+                type="text"
+                value={proxyUrl}
+                onChange={(e) => setProxyUrl(e.target.value)}
+                placeholder="SSRF endpoint (e.g., http://target.com/proxy)"
+                disabled={isRunning}
+                className="url-input"
+              />
+              <input
+                type="text"
+                value={paramName}
+                onChange={(e) => setParamName(e.target.value)}
+                placeholder="param"
+                disabled={isRunning}
+                className="param-input"
+                style={{ width: '100px' }}
+              />
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={!proxyUrl || isRunning}
+              >
+                {isRunning ? (
+                  <>
+                    <span className="spinner"></span> Running
+                  </>
+                ) : (
+                  'Start'
+                )}
+              </button>
+            </form>
+            {proxyUrl && (
+              <div className="form-hint">
+                Will use: {proxyUrl}{!proxyUrl.includes('?') && '?'}{paramName}=
+              </div>
+            )}
+          </div>
 
           <Terminal logs={logs} />
         </div>
