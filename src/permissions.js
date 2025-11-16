@@ -251,7 +251,7 @@ export async function enumerateRolePermissions(roleName) {
 
       // Fetch all managed policies in parallel
       if (attachedPolicies.AttachedPolicies.length > 0) {
-        log(`  Analyzing ${attachedPolicies.AttachedPolicies.length} managed policies in parallel...`);
+        log(`  Fetching ${attachedPolicies.AttachedPolicies.length} managed policies in parallel...`);
 
         const policyPromises = attachedPolicies.AttachedPolicies.map(async (policy) => {
           const versionCommand = `aws iam get-policy --policy-arn ${policy.PolicyArn} --query "Policy.DefaultVersionId" --output text`;
@@ -270,6 +270,7 @@ export async function enumerateRolePermissions(roleName) {
         const policyResults = await Promise.all(policyPromises);
 
         policyResults.forEach((result) => {
+          log(`  ✓ ${result.name}`, null, "green");
           extractPermissions(
             result.document,
             allPermissions,
@@ -287,7 +288,7 @@ export async function enumerateRolePermissions(roleName) {
 
       // Fetch all inline policies in parallel
       if (inlinePolicies.PolicyNames.length > 0) {
-        log(`  Analyzing ${inlinePolicies.PolicyNames.length} inline policies in parallel...`);
+        log(`  Fetching ${inlinePolicies.PolicyNames.length} inline policies in parallel...`);
 
         const inlinePolicyPromises = inlinePolicies.PolicyNames.map(async (policyName) => {
           const inlineCommand = `aws iam get-role-policy --role-name ${roleName} --policy-name ${policyName} --output json`;
@@ -303,6 +304,7 @@ export async function enumerateRolePermissions(roleName) {
         const inlinePolicyResults = await Promise.all(inlinePolicyPromises);
 
         inlinePolicyResults.forEach((result) => {
+          log(`  ✓ ${result.name}`, null, "green");
           extractPermissions(
             result.document,
             allPermissions,
