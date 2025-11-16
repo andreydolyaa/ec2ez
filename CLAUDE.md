@@ -930,9 +930,52 @@ node ec2ez.js <ssrf-url>       # Run exploitation
 
 ## Testing & Debugging
 
+### Automated Testing
+
+The project includes a comprehensive test suite using Jest with excellent coverage for core modules.
+
+**Running Tests:**
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+```
+
+**Test Coverage:**
+
+- **config.js**: 100% coverage - Configuration and constants
+- **imds.js**: 96.77% coverage - IMDS interactions and credential extraction
+- **utils.js**: 84.84% coverage - Logging and helper functions
+- **summary.js**: 80.32% coverage - Session summary and reporting
+- **aws.js**: Integration tests for AWS CLI wrapper functions
+
+**Test Files:**
+
+```
+tests/
+├── config.test.js     # Configuration tests
+├── utils.test.js      # Utility function tests (logging, helpers)
+├── imds.test.js       # IMDS interaction tests with axios mocks
+├── summary.test.js    # Session summary class tests
+└── aws.test.js        # AWS CLI wrapper integration tests
+```
+
+**Testing Approach:**
+
+- **Unit Tests**: Core modules tested with mocked dependencies (axios, fs)
+- **Integration Tests**: AWS CLI wrapper tested with real command execution
+- **Mock Strategy**: Uses Jest spies for axios, fs operations
+- **Console Suppression**: All console output mocked during tests for clean output
+
 ### Manual Testing
 
-Currently, no automated test suite exists. Testing is manual:
+For end-to-end testing with real AWS infrastructure:
 
 1. **Set up test environment:**
    - Deploy vulnerable SSRF endpoint

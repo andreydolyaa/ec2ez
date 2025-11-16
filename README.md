@@ -48,6 +48,44 @@ cd ec2ez
 npm install
 ```
 
+## Testing
+
+The project includes a comprehensive test suite using Jest to ensure code quality and reliability.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+```
+
+### Test Coverage
+
+The test suite provides excellent coverage for core modules:
+
+- **config.js**: 100% coverage - Configuration and constants
+- **imds.js**: 96.77% coverage - IMDS interactions and credential extraction
+- **utils.js**: 84.84% coverage - Logging and helper functions
+- **summary.js**: 80.32% coverage - Session summary and reporting
+- **aws.js**: Integration tests for AWS CLI wrapper functions
+
+### Test Organization
+
+```
+tests/
+├── config.test.js    # Configuration tests
+├── utils.test.js     # Utility function tests
+├── imds.test.js      # IMDS interaction tests (with axios mocks)
+├── summary.test.js   # Session summary class tests
+└── aws.test.js       # AWS CLI wrapper tests
+```
+
 ## Usage
 
 ### Basic Usage
@@ -173,16 +211,22 @@ ec2ez/
 ├── ec2ez.js               # Main entry point
 ├── package.json           # Dependencies
 ├── README.md              # This file
-└── src/
-    ├── config.js          # Configuration and constants
-    ├── utils.js           # Logging utilities
-    ├── imds.js            # IMDSv2 interaction functions
-    ├── aws.js             # AWS CLI wrappers
-    ├── permissions.js     # Permission enumeration
-    ├── interactive.js     # Interactive menu system
-    ├── presigned.js       # Pre-signed URL discovery
-    ├── s3discovery.js     # S3 bucket discovery and testing
-    └── summary.js         # Session summary and reporting
+├── src/                   # Source code
+│   ├── config.js          # Configuration and constants
+│   ├── utils.js           # Logging utilities
+│   ├── imds.js            # IMDSv2 interaction functions
+│   ├── aws.js             # AWS CLI wrappers
+│   ├── permissions.js     # Permission enumeration
+│   ├── interactive.js     # Interactive menu system
+│   ├── presigned.js       # Pre-signed URL discovery
+│   ├── s3discovery.js     # S3 bucket discovery and testing
+│   └── summary.js         # Session summary and reporting
+└── tests/                 # Test suite
+    ├── config.test.js     # Configuration tests
+    ├── utils.test.js      # Utility tests
+    ├── imds.test.js       # IMDS tests
+    ├── summary.test.js    # Summary tests
+    └── aws.test.js        # AWS tests
 ```
 
 ## Configuration
