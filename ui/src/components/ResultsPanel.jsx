@@ -71,7 +71,8 @@ export default function ResultsPanel({ sessionData, isRunning }) {
       setFetchedData(prev => new Set(prev).add('ec2Instances'));
       loadData('ec2Instances', '/api/ec2/instances', 'instances');
     }
-  }, [sessionData.permissions, fetchedData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionData.permissions]);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
