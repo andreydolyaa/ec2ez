@@ -337,3 +337,122 @@ export async function listLambdaFunctions() {
     throw error;
   }
 }
+
+export async function getSSMParameter(parameterName) {
+  try {
+    logInfo(`Reading SSM parameter: ${parameterName}`);
+    const output = await executeAWSCommand(
+      `aws ssm get-parameter --name "${parameterName}" --with-decryption --output json`
+    );
+    const param = JSON.parse(output);
+    logSuccess("Parameter value retrieved");
+    log(`  Name: ${param.Parameter.Name}`, null, "cyan");
+    log(`  Type: ${param.Parameter.Type}`, null, "dim");
+    log(`  Value: ${param.Parameter.Value}`, null, "green");
+    return param.Parameter;
+  } catch (error) {
+    logError("Failed to get SSM parameter");
+    log(error.message, null, "red");
+    throw error;
+  }
+}
+
+export async function getSecretValue(secretName) {
+  try {
+    logInfo(`Reading secret: ${secretName}`);
+    const output = await executeAWSCommand(
+      `aws secretsmanager get-secret-value --secret-id "${secretName}" --output json`
+    );
+    const secret = JSON.parse(output);
+    logSuccess("Secret retrieved");
+    log(`  ARN: ${secret.ARN}`, null, "dim");
+    log(`  Secret String: ${secret.SecretString}`, null, "green");
+    return secret;
+  } catch (error) {
+    logError("Failed to get secret value");
+    log(error.message, null, "red");
+    throw error;
+  }
+}
+
+export async function downloadS3Object(bucket, key, outputPath) {
+  try {
+    logInfo(`Downloading s3://${bucket}/${key} to ${outputPath}`);
+    await executeAWSCommand(`aws s3 cp s3://${bucket}/${key} "${outputPath}"`);
+    logSuccess(`Downloaded to: ${outputPath}`);
+    return outputPath;
+  } catch (error) {
+    logError("Failed to download S3 object");
+    log(error.message, null, "red");
+    throw error;
+  }
+}
+
+export async function uploadS3Object(localPath, bucket, key) {
+  try {
+    logInfo(`Uploading ${localPath} to s3://${bucket}/${key}`);
+    await executeAWSCommand(`aws s3 cp "${localPath}" s3://${bucket}/${key}`);
+    logSuccess("Upload successful");
+    return `s3://${bucket}/${key}`;
+  } catch (error) {
+    logError("Failed to upload S3 object");
+    log(error.message, null, "red");
+    throw error;
+  }
+}
+
+export async function listS3Objects(bucket, prefix = "") {
+  try {
+    logInfo(`Listing objects in s3://${bucket}/${prefix}`);
+    const command = prefix
+      ? `aws s3 ls s3://${bucket}/${prefix} --recursive`
+      : `aws s3 ls s3://${bucket}/ --recursive`;
+    const output = await executeAWSCommand(command);
+    if (output) {
+      console.log(output);
+      logSuccess("Objects listed successfully");
+    } else {
+      logInfo("No objects found");
+    }
+    return output;
+  } catch (error) {
+    logError("Failed to list S3 objects");
+    log(error.message, null, "red");
+    throw error;
+  }
+}
+
+export async function invokeLambda(functionName, payload = "{}") {
+  try {
+    logInfo(`Invoking Lambda function: ${functionName}`);
+    const tmpFile = `/tmp/lambda-response-${Date.now()}.json`;
+    await executeAWSCommand(
+      `aws lambda invoke --function-name "${functionName}" --payload '${payload}' ${tmpFile}`
+    );
+    const response = fs.readFileSync(tmpFile, "utf8");
+    fs.unlinkSync(tmpFile);
+    logSuccess("Lambda invoked successfully");
+    log("Response:", null, "green");
+    console.log(response);
+    return response;
+  } catch (error) {
+    logError("Failed to invoke Lambda function");
+    log(error.message, null, "red");
+    throw error;
+  }
+}
+
+export async function createSSMParameter(parameterName, value, paramType = "String") {
+  try {
+    logInfo(`Creating SSM parameter: ${parameterName}`);
+    await executeAWSCommand(
+      `aws ssm put-parameter --name "${parameterName}" --value "${value}" --type ${paramType} --overwrite`
+    );
+    logSuccess("Parameter created/updated successfully");
+    return parameterName;
+  } catch (error) {
+    logError("Failed to create SSM parameter");
+    log(error.message, null, "red");
+    throw error;
+  }
+}

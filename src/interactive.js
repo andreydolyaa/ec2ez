@@ -6,6 +6,7 @@ import {
   logSeparator,
   logWarning,
   log,
+  promptUser,
 } from "./utils.js";
 import { matchesPermission } from "./permissions.js";
 import {
@@ -17,6 +18,13 @@ import {
   listIAMRoles,
   listEC2Instances,
   listLambdaFunctions,
+  getSSMParameter,
+  getSecretValue,
+  downloadS3Object,
+  uploadS3Object,
+  listS3Objects,
+  invokeLambda,
+  createSSMParameter,
 } from "./aws.js";
 
 function createInterface() {
@@ -170,6 +178,168 @@ export function buildAvailableActions(permissionResults) {
       service: "Lambda",
       dangerous: false,
       handler: listLambdaFunctions,
+    });
+  }
+
+  if (
+    permissions.some(
+      (p) =>
+        matchesPermission(p, "ssm:GetParameter") ||
+        matchesPermission(p, "ssm:*")
+    )
+  ) {
+    actions.push({
+      id: "9",
+      name: "Read SSM Parameter Value",
+      description: "Get the actual value of an SSM parameter",
+      service: "SSM",
+      dangerous: true,
+      handler: async () => {
+        const paramName = await promptUser("Enter parameter name: ");
+        if (paramName) {
+          await getSSMParameter(paramName);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some(
+      (p) =>
+        matchesPermission(p, "secretsmanager:GetSecretValue") ||
+        matchesPermission(p, "secretsmanager:*")
+    )
+  ) {
+    actions.push({
+      id: "10",
+      name: "Read Secret Value",
+      description: "Get the actual value of a secret from Secrets Manager",
+      service: "Secrets Manager",
+      dangerous: true,
+      handler: async () => {
+        const secretName = await promptUser("Enter secret name/ARN: ");
+        if (secretName) {
+          await getSecretValue(secretName);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some(
+      (p) =>
+        matchesPermission(p, "s3:GetObject") ||
+        matchesPermission(p, "s3:*")
+    )
+  ) {
+    actions.push({
+      id: "11",
+      name: "Download S3 Object",
+      description: "Download a file from an S3 bucket",
+      service: "S3",
+      dangerous: false,
+      handler: async () => {
+        const bucket = await promptUser("Enter bucket name: ");
+        const key = await promptUser("Enter object key (path): ");
+        const outputPath = await promptUser("Enter local save path: ");
+        if (bucket && key && outputPath) {
+          await downloadS3Object(bucket, key, outputPath);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some(
+      (p) =>
+        matchesPermission(p, "s3:PutObject") ||
+        matchesPermission(p, "s3:*")
+    )
+  ) {
+    actions.push({
+      id: "12",
+      name: "Upload S3 Object",
+      description: "Upload a file to an S3 bucket",
+      service: "S3",
+      dangerous: true,
+      handler: async () => {
+        const localPath = await promptUser("Enter local file path: ");
+        const bucket = await promptUser("Enter bucket name: ");
+        const key = await promptUser("Enter object key (path in S3): ");
+        if (localPath && bucket && key) {
+          await uploadS3Object(localPath, bucket, key);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some(
+      (p) =>
+        matchesPermission(p, "s3:ListBucket") ||
+        matchesPermission(p, "s3:*")
+    )
+  ) {
+    actions.push({
+      id: "13",
+      name: "List S3 Bucket Objects",
+      description: "List all objects in a specific S3 bucket",
+      service: "S3",
+      dangerous: false,
+      handler: async () => {
+        const bucket = await promptUser("Enter bucket name: ");
+        const prefix = await promptUser("Enter prefix (optional, press Enter to skip): ");
+        if (bucket) {
+          await listS3Objects(bucket, prefix);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some(
+      (p) =>
+        matchesPermission(p, "lambda:InvokeFunction") ||
+        matchesPermission(p, "lambda:*")
+    )
+  ) {
+    actions.push({
+      id: "14",
+      name: "Invoke Lambda Function",
+      description: "Execute a Lambda function with custom payload",
+      service: "Lambda",
+      dangerous: true,
+      handler: async () => {
+        const functionName = await promptUser("Enter function name: ");
+        const payload = await promptUser("Enter JSON payload (or press Enter for {}): ");
+        if (functionName) {
+          await invokeLambda(functionName, payload || "{}");
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some(
+      (p) =>
+        matchesPermission(p, "ssm:PutParameter") ||
+        matchesPermission(p, "ssm:*")
+    )
+  ) {
+    actions.push({
+      id: "15",
+      name: "Create/Update SSM Parameter",
+      description: "Create or update an SSM parameter value",
+      service: "SSM",
+      dangerous: true,
+      handler: async () => {
+        const paramName = await promptUser("Enter parameter name: ");
+        const value = await promptUser("Enter parameter value: ");
+        const paramType = await promptUser("Enter type (String/SecureString/StringList) [default: String]: ");
+        if (paramName && value) {
+          await createSSMParameter(paramName, value, paramType || "String");
+        }
+      },
     });
   }
 

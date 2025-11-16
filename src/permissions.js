@@ -30,6 +30,7 @@ export async function discoverPermissionsByTesting() {
     { permission: "secretsmanager:ListSecrets", command: "aws secretsmanager list-secrets --max-results 1 --output json" },
     { permission: "ssm:DescribeParameters", command: "aws ssm describe-parameters --max-results 1 --output json" },
     { permission: "lambda:ListFunctions", command: "aws lambda list-functions --max-items 1 --output json" },
+    { permission: "ec2:RunInstances", command: "aws ec2 run-instances --dry-run --image-id ami-12345678 --instance-type t2.micro 2>&1 || true" },
   ];
 
   for (const test of permissionTests) {
