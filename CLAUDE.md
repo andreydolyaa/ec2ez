@@ -2,7 +2,7 @@
 
 **Last Updated:** 2025-11-16
 **Project:** EC2EZ - AWS IMDSv2 Exploitation Tool
-**Version:** 1.0.0
+**Version:** 1.1.0 (Web UI with enhanced features)
 
 ## Table of Contents
 
@@ -212,11 +212,23 @@ The interactive menu dynamically constructs available actions based on **actual 
 **Wildcard Matching:** The tool correctly handles wildcard permissions like `s3:*`, `ec2:*`, `s3:List*`, etc.
 
 ### Technology Stack
+
+**Backend (CLI & Server):**
 - **Runtime:** Node.js 18+ (ES Modules)
 - **Dependencies:**
   - `axios` ^1.13.2 (HTTP client)
+  - `socket.io` ^4.5.4 (Real-time WebSocket communication)
+  - `express` ^4.18.2 (Web server framework)
+  - `cors` ^2.8.5 (Cross-origin resource sharing)
 - **External Requirements:**
   - AWS CLI (must be in PATH)
+
+**Frontend (Web UI):**
+- **Framework:** React 18.2.0
+- **Build Tool:** Vite 4.4.5
+- **HTTP Client:** axios ^1.6.0
+- **Real-time:** socket.io-client ^4.5.4
+- **Styling:** Custom CSS with CSS variables for theming
 
 ### Legal & Ethical Notice
 ⚠️ **CRITICAL:** This tool is for authorized security testing ONLY. AI assistants should:
@@ -233,21 +245,41 @@ The interactive menu dynamically constructs available actions based on **actual 
 
 ```
 ec2ez/
-├── ec2ez.js               # Main entry point and orchestration
+├── ec2ez.js               # CLI entry point (standalone tool)
 ├── package.json           # Node.js dependencies and configuration
 ├── package-lock.json      # Locked dependency versions
 ├── README.md              # User-facing documentation
 ├── .gitignore            # Git ignore rules (includes CLAUDE.md)
-└── src/                  # Source modules (all ES modules)
-    ├── config.js         # Configuration constants and color definitions
-    ├── utils.js          # Logging utilities and helper functions
-    ├── imds.js           # IMDSv2 interaction and credential extraction
-    ├── aws.js            # AWS CLI wrapper functions
-    ├── permissions.js    # IAM permission enumeration and testing
-    ├── interactive.js    # Interactive menu system for post-exploitation
-    ├── presigned.js      # Pre-signed URL discovery and testing
-    ├── s3discovery.js    # S3 bucket discovery and access testing
-    └── summary.js        # Session summary and comprehensive reporting
+│
+├── src/                   # Core exploitation modules (ES modules)
+│   ├── config.js          # Configuration constants and color definitions
+│   ├── utils.js           # Logging utilities and helper functions
+│   ├── imds.js            # IMDSv2 interaction and credential extraction
+│   ├── aws.js             # AWS CLI wrapper functions
+│   ├── permissions.js     # IAM permission enumeration and testing
+│   ├── interactive.js     # Interactive CLI menu for post-exploitation
+│   ├── presigned.js       # Pre-signed URL discovery and testing
+│   ├── s3discovery.js     # S3 bucket discovery and access testing
+│   └── summary.js         # Session summary and comprehensive reporting
+│
+├── server/                # Web server (Express + Socket.io)
+│   └── server.js          # REST API endpoints and WebSocket server
+│
+└── ui/                    # React frontend application
+    ├── package.json       # Frontend dependencies
+    ├── vite.config.js     # Vite build configuration
+    ├── index.html         # HTML entry point
+    └── src/
+        ├── App.jsx        # Main React component
+        ├── App.css        # App-level styles
+        ├── main.jsx       # React entry point
+        ├── components/    # React components
+        │   ├── Terminal.jsx       # Real-time log display
+        │   ├── Terminal.css       # Terminal styles
+        │   ├── ResultsPanel.jsx   # Data display with sections
+        │   └── ResultsPanel.css   # Results panel styles
+        └── styles/
+            └── theme.css  # Global CSS variables and theming
 ```
 
 ### Module Architecture
@@ -293,8 +325,101 @@ ec2ez/
    - Enumerate permissions
 3. **Output:**
    - Credentials written to `~/.aws/credentials`
-   - Session summary displayed in console
+   - Session summary displayed in console (CLI) or UI (Web)
    - Interactive menu for further actions
+
+### Web UI Features
+
+The web interface provides a modern, real-time dashboard for exploitation:
+
+**Real-Time Communication:**
+- WebSocket connection via Socket.io for live log streaming
+- Instant sessionUpdate events for discovered data
+- Color-coded terminal output matching CLI
+
+**Display Sections:**
+
+1. **IMDSv2 Token Section**
+   - Full token value display
+   - Token length and TTL information
+   - 6-hour expiration reminder
+   - Badge: "6 hour TTL"
+
+2. **Extracted Credentials Section** ⚠️ SENSITIVE
+   - Role name
+   - Access Key ID (full display)
+   - Secret Access Key (full display with red highlight)
+   - Session Token (scrollable, full display)
+   - Expiration timestamp (formatted)
+   - Notice that credentials are written to ~/.aws/credentials
+   - Badge: "SENSITIVE"
+
+3. **AWS Account Info Section**
+   - Account ID
+   - Region
+   - List of discovered IAM roles
+   - Badge: "Valid"
+
+4. **IMDS Metadata (Tree View)** 📁
+   - Hierarchical folder/file structure
+   - Expandable/collapsible folders
+   - File icons (📁 for folders, 📄 for files)
+   - Click folders to expand children
+   - Value preview for files (first 50 chars)
+   - "View" button for full value in modal
+   - Sorted display (folders first, then files)
+   - Badge shows total entry count
+
+5. **Secrets Found in Metadata Section** ⚠️
+   - Detected credential types (AWS keys, private keys, passwords, etc.)
+   - Path where secret was found
+   - Value preview (first 150 chars)
+   - Type badges for each detection
+   - "View Full Value" button for modal display
+   - Badge: "{count} secrets"
+
+6. **IAM Permissions Section**
+   - Total permission count
+   - All discovered permissions list
+   - Dangerous permissions highlighted in red
+   - Grouped by permission type
+   - Badge: "{count} permissions"
+
+7. **Auto-Fetch Resource Sections** (Permission-based)
+   - IAM Users (auto-fetches when `iam:ListUsers` permission available)
+   - IAM Roles (auto-fetches when `iam:ListRoles` permission available)
+   - Secrets Manager (auto-fetches when `secretsmanager:ListSecrets` available)
+   - SSM Parameters (auto-fetches when `ssm:DescribeParameters` available)
+   - Lambda Functions (auto-fetches when `lambda:ListFunctions` available)
+   - EC2 Instances (auto-fetches when `ec2:DescribeInstances` available)
+
+8. **S3 Operations Section**
+   - Manual "List Buckets" button
+   - Auto-displays discovered buckets
+   - "View Objects" button per bucket
+   - Dynamic section for bucket objects
+
+9. **Advanced Operations Section**
+   - Extract All Secrets & Parameters (bulk download)
+   - Create SSM Parameter
+   - Invoke Lambda Function
+   - Run Shell Command
+   - Badge: "SENSITIVE"
+
+**UI Features:**
+- **Auto-fetch:** Resources load automatically when permissions are discovered (no button clicks)
+- **Infinite loop prevention:** Uses Set tracking with proper useEffect dependencies
+- **Loading states:** Spinner indicators during API calls
+- **Modal viewer:** Full value display for long strings
+- **Collapsible sections:** Click to expand/collapse
+- **Color-coded badges:** Success (green), Info (blue), Warning (yellow), Danger (red)
+- **Responsive layout:** Split panel (terminal + results)
+- **Dark theme:** Custom CSS variables for consistent theming
+
+**WebSocket Events:**
+- `log`: Real-time log messages (type, message, data, timestamp)
+- `sessionUpdate`: Updated session data (credentials, metadata, permissions, etc.)
+- `exploitationComplete`: Signals end of exploitation flow
 
 ---
 

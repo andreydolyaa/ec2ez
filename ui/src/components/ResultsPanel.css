@@ -382,3 +382,86 @@
   word-break: break-all;
   color: var(--text-primary);
 }
+
+/* Tree view styles */
+.metadata-tree {
+  width: 100%;
+}
+
+.tree-root {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.tree-folder {
+  margin-left: 16px;
+}
+
+.tree-folder-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.tree-folder-header:hover {
+  background: var(--bg-hover);
+}
+
+.tree-folder-children {
+  margin-left: 12px;
+  border-left: 1px solid var(--border-secondary);
+  padding-left: 8px;
+  margin-top: 4px;
+}
+
+.tree-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  margin-left: 16px;
+  border-radius: 3px;
+}
+
+.tree-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tree-name {
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.tree-count {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-left: 4px;
+}
+
+.tree-arrow {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
+
+.tree-value {
+  margin-left: 8px;
+  color: var(--accent-green);
+  font-size: 10px;
+  word-break: break-word;
+}
+
+.tree-value-preview {
+  margin-left: 8px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-style: italic;
+}

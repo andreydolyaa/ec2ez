@@ -20,7 +20,10 @@ export default function App() {
     token: null,
     metadata: 0,
     metadataDetails: {},
+    metadataTree: {},
     metadataSecrets: [],
+    imdsToken: null,
+    credentials: null,
   });
   const [socket, setSocket] = useState(null);
 
@@ -58,7 +61,10 @@ export default function App() {
       token: null,
       metadata: 0,
       metadataDetails: {},
+      metadataTree: {},
       metadataSecrets: [],
+      imdsToken: null,
+      credentials: null,
       proxyUrl,
     });
 

