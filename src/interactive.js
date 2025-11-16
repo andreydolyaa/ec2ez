@@ -1,4 +1,6 @@
 import readline from "readline";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { COLORS } from "./config.js";
 import {
   logInfo,
@@ -6,6 +8,7 @@ import {
   logSeparator,
   logWarning,
   log,
+  logError,
 } from "./utils.js";
 import { matchesPermission } from "./permissions.js";
 import {
@@ -17,7 +20,17 @@ import {
   listIAMRoles,
   listEC2Instances,
   listLambdaFunctions,
+  getSSMParameter,
+  getSecretValue,
+  downloadS3Object,
+  uploadS3Object,
+  listS3Objects,
+  invokeLambda,
+  createSSMParameter,
+  extractAllSecrets,
 } from "./aws.js";
+
+const execAsync = promisify(exec);
 
 function createInterface() {
   return readline.createInterface({
@@ -39,11 +52,7 @@ export function buildAvailableActions(permissionResults) {
   const permissions = permissionResults.allPermissions;
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "ec2:RunInstances") ||
-        matchesPermission(p, "ec2:*")
-    )
+    permissions.some((p) => matchesPermission(p, "ec2:RunInstances"))
   ) {
     actions.push({
       id: "1",
@@ -56,11 +65,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "ec2:DescribeInstances") ||
-        matchesPermission(p, "ec2:*")
-    )
+    permissions.some((p) => matchesPermission(p, "ec2:DescribeInstances"))
   ) {
     actions.push({
       id: "2",
@@ -76,8 +81,7 @@ export function buildAvailableActions(permissionResults) {
     permissions.some(
       (p) =>
         matchesPermission(p, "s3:ListAllMyBuckets") ||
-        matchesPermission(p, "s3:ListBucket") ||
-        matchesPermission(p, "s3:*")
+        matchesPermission(p, "s3:ListBucket")
     )
   ) {
     actions.push({
@@ -91,11 +95,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "secretsmanager:ListSecrets") ||
-        matchesPermission(p, "secretsmanager:*")
-    )
+    permissions.some((p) => matchesPermission(p, "secretsmanager:ListSecrets"))
   ) {
     actions.push({
       id: "4",
@@ -108,11 +108,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "ssm:DescribeParameters") ||
-        matchesPermission(p, "ssm:*")
-    )
+    permissions.some((p) => matchesPermission(p, "ssm:DescribeParameters"))
   ) {
     actions.push({
       id: "5",
@@ -125,10 +121,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "iam:ListUsers") || matchesPermission(p, "iam:*")
-    )
+    permissions.some((p) => matchesPermission(p, "iam:ListUsers"))
   ) {
     actions.push({
       id: "6",
@@ -141,10 +134,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "iam:ListRoles") || matchesPermission(p, "iam:*")
-    )
+    permissions.some((p) => matchesPermission(p, "iam:ListRoles"))
   ) {
     actions.push({
       id: "7",
@@ -157,11 +147,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "lambda:ListFunctions") ||
-        matchesPermission(p, "lambda:*")
-    )
+    permissions.some((p) => matchesPermission(p, "lambda:ListFunctions"))
   ) {
     actions.push({
       id: "8",
@@ -172,6 +158,259 @@ export function buildAvailableActions(permissionResults) {
       handler: listLambdaFunctions,
     });
   }
+
+  if (
+    permissions.some((p) => matchesPermission(p, "ssm:GetParameter"))
+  ) {
+    actions.push({
+      id: "9",
+      name: "Read SSM Parameter Value",
+      description: "Get the actual value of an SSM parameter",
+      service: "SSM",
+      dangerous: true,
+      handler: async (rl) => {
+        // First list available parameters
+        try {
+          await listSSMParameters();
+        } catch (error) {
+          logWarning("Could not list parameters, but you can still try entering a name");
+        }
+        logSeparator();
+        const paramName = await askQuestion(rl, `${COLORS.cyan}Enter parameter name: ${COLORS.reset}`);
+        if (paramName) {
+          await getSSMParameter(paramName);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some((p) => matchesPermission(p, "secretsmanager:GetSecretValue"))
+  ) {
+    actions.push({
+      id: "10",
+      name: "Read Secret Value",
+      description: "Get the actual value of a secret from Secrets Manager",
+      service: "Secrets Manager",
+      dangerous: true,
+      handler: async (rl) => {
+        // First list available secrets
+        try {
+          await listSecrets();
+        } catch (error) {
+          logWarning("Could not list secrets, but you can still try entering a name");
+        }
+        logSeparator();
+        const secretName = await askQuestion(rl, `${COLORS.cyan}Enter secret name/ARN: ${COLORS.reset}`);
+        if (secretName) {
+          await getSecretValue(secretName);
+        }
+      },
+    });
+  }
+
+  // Bulk extraction works with EITHER secrets OR SSM permissions (or both)
+  if (
+    permissions.some((p) => matchesPermission(p, "secretsmanager:GetSecretValue")) ||
+    permissions.some((p) => matchesPermission(p, "ssm:GetParameter"))
+  ) {
+    actions.push({
+      id: "15",
+      name: "Extract All Secrets & Parameters",
+      description: "Bulk download all secrets and SSM parameters, scan for credentials",
+      service: "Multi-Service",
+      dangerous: true,
+      handler: async (rl) => {
+        await extractAllSecrets();
+      },
+    });
+  }
+
+  if (
+    permissions.some((p) => matchesPermission(p, "s3:GetObject"))
+  ) {
+    actions.push({
+      id: "11",
+      name: "Download S3 Object",
+      description: "Download a file from an S3 bucket",
+      service: "S3",
+      dangerous: false,
+      handler: async (rl) => {
+        // First list available buckets
+        try {
+          await listS3Buckets();
+        } catch (error) {
+          logWarning("Could not list buckets, but you can still try entering a bucket name");
+        }
+        logSeparator();
+        const bucket = await askQuestion(rl, `${COLORS.cyan}Enter bucket name: ${COLORS.reset}`);
+        if (!bucket) return;
+
+        // Try to list objects in the bucket
+        try {
+          await listS3Objects(bucket, "");
+          logSeparator();
+        } catch (error) {
+          logWarning("Could not list objects in bucket");
+          logSeparator();
+        }
+
+        const key = await askQuestion(rl, `${COLORS.cyan}Enter object key (path): ${COLORS.reset}`);
+        const outputPath = await askQuestion(rl, `${COLORS.cyan}Enter local save path: ${COLORS.reset}`);
+        if (bucket && key && outputPath) {
+          await downloadS3Object(bucket, key, outputPath);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some((p) => matchesPermission(p, "s3:PutObject"))
+  ) {
+    actions.push({
+      id: "12",
+      name: "Upload S3 Object",
+      description: "Upload a file to an S3 bucket",
+      service: "S3",
+      dangerous: true,
+      handler: async (rl) => {
+        // First list available buckets
+        try {
+          await listS3Buckets();
+        } catch (error) {
+          logWarning("Could not list buckets, but you can still try entering a bucket name");
+        }
+        logSeparator();
+        const localPath = await askQuestion(rl, `${COLORS.cyan}Enter local file path: ${COLORS.reset}`);
+        const bucket = await askQuestion(rl, `${COLORS.cyan}Enter bucket name: ${COLORS.reset}`);
+        const key = await askQuestion(rl, `${COLORS.cyan}Enter object key (path in S3): ${COLORS.reset}`);
+        if (localPath && bucket && key) {
+          await uploadS3Object(localPath, bucket, key);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some((p) => matchesPermission(p, "s3:ListBucket"))
+  ) {
+    actions.push({
+      id: "13",
+      name: "List S3 Bucket Objects",
+      description: "List all objects in a specific S3 bucket",
+      service: "S3",
+      dangerous: false,
+      handler: async (rl) => {
+        // First list available buckets
+        try {
+          await listS3Buckets();
+        } catch (error) {
+          logWarning("Could not list buckets, but you can still try entering a bucket name");
+        }
+        logSeparator();
+        const bucket = await askQuestion(rl, `${COLORS.cyan}Enter bucket name: ${COLORS.reset}`);
+        const prefix = await askQuestion(rl, `${COLORS.cyan}Enter prefix (optional, press Enter to skip): ${COLORS.reset}`);
+        if (bucket) {
+          await listS3Objects(bucket, prefix);
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some((p) => matchesPermission(p, "lambda:InvokeFunction"))
+  ) {
+    actions.push({
+      id: "14",
+      name: "Invoke Lambda Function",
+      description: "Execute a Lambda function with custom payload",
+      service: "Lambda",
+      dangerous: true,
+      handler: async (rl) => {
+        // First list available Lambda functions
+        try {
+          await listLambdaFunctions();
+        } catch (error) {
+          logWarning("Could not list Lambda functions, but you can still try entering a function name");
+        }
+        logSeparator();
+        const functionName = await askQuestion(rl, `${COLORS.cyan}Enter function name: ${COLORS.reset}`);
+        const payload = await askQuestion(rl, `${COLORS.cyan}Enter JSON payload (or press Enter for {}): ${COLORS.reset}`);
+        if (functionName) {
+          await invokeLambda(functionName, payload || "{}");
+        }
+      },
+    });
+  }
+
+  if (
+    permissions.some((p) => matchesPermission(p, "ssm:PutParameter"))
+  ) {
+    actions.push({
+      id: "15",
+      name: "Create/Update SSM Parameter",
+      description: "Create or update an SSM parameter value",
+      service: "SSM",
+      dangerous: true,
+      handler: async (rl) => {
+        // First list existing parameters
+        try {
+          await listSSMParameters();
+        } catch (error) {
+          logWarning("Could not list parameters, but you can still create a new one");
+        }
+        logSeparator();
+        const paramName = await askQuestion(rl, `${COLORS.cyan}Enter parameter name: ${COLORS.reset}`);
+        const value = await askQuestion(rl, `${COLORS.cyan}Enter parameter value: ${COLORS.reset}`);
+        const paramType = await askQuestion(rl, `${COLORS.cyan}Enter type (String/SecureString/StringList) [default: String]: ${COLORS.reset}`);
+        if (paramName && value) {
+          await createSSMParameter(paramName, value, paramType || "String");
+        }
+      },
+    });
+  }
+
+  // Always available: Shell command execution
+  actions.push({
+    id: "16",
+    name: "Run Shell Command",
+    description: "Execute shell commands on the host (ls, pwd, find, etc.)",
+    service: "System",
+    dangerous: false,
+    handler: async (rl) => {
+      logInfo("Examples: ls, pwd, ls -la /tmp, find . -name '*.txt', cat /etc/hosts");
+      logSeparator();
+      const command = await askQuestion(rl, `${COLORS.cyan}Enter shell command: ${COLORS.reset}`);
+      if (!command) {
+        logWarning("No command entered");
+        return;
+      }
+
+      try {
+        logInfo(`Executing: ${command}`);
+        const { stdout, stderr } = await execAsync(command);
+
+        if (stdout) {
+          console.log(stdout);
+        }
+        if (stderr) {
+          logWarning("stderr:");
+          console.log(stderr);
+        }
+
+        logSuccess("Command executed successfully");
+      } catch (error) {
+        logError("Command execution failed");
+        if (error.stdout) {
+          console.log(error.stdout);
+        }
+        if (error.stderr) {
+          log("Error output:", null, "red");
+          console.log(error.stderr);
+        }
+      }
+    },
+  });
 
   return actions;
 }
@@ -255,21 +494,16 @@ export async function runInteractiveMenu(permissionResults) {
       logInfo(`Executing: ${selectedAction.name}`);
       logSeparator();
 
-      await selectedAction.handler();
+      await selectedAction.handler(rl);
 
       logSeparator();
       logSuccess(`${selectedAction.name} completed successfully!`);
       logSeparator();
 
-      const continueChoice = await askQuestion(
+      await askQuestion(
         rl,
-        `${COLORS.yellow}Press Enter to continue or type 'exit' to quit: ${COLORS.reset}`
+        `${COLORS.yellow}Press Enter to continue...${COLORS.reset}`
       );
-
-      if (continueChoice.toLowerCase() === "exit") {
-        logSuccess("Exiting interactive menu. Goodbye!");
-        running = false;
-      }
     } catch (error) {
       logSeparator();
       logWarning(
@@ -277,15 +511,10 @@ export async function runInteractiveMenu(permissionResults) {
       );
       logSeparator();
 
-      const continueChoice = await askQuestion(
+      await askQuestion(
         rl,
-        `${COLORS.yellow}Press Enter to continue or type 'exit' to quit: ${COLORS.reset}`
+        `${COLORS.yellow}Press Enter to continue...${COLORS.reset}`
       );
-
-      if (continueChoice.toLowerCase() === "exit") {
-        logSuccess("Exiting interactive menu. Goodbye!");
-        running = false;
-      }
     }
   }
 

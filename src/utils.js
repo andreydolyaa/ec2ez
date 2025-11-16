@@ -1,6 +1,21 @@
 import { COLORS } from "./config.js";
+import readline from "readline";
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export async function promptUser(question) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(`${COLORS.cyan}${question}${COLORS.reset}`, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
 
 export function log(message, data = null, color = null) {
   const timestamp = new Date().toISOString();
@@ -41,12 +56,12 @@ export function logSeparator() {
 export function displayBanner() {
   const banner = `
 ${COLORS.red}
-    ███████╗ ██████╗██████╗     ███████╗███████╗
-    ██╔════╝██╔════╝╚════██╗    ██╔════╝╚══███╔╝
-    █████╗  ██║      █████╔╝    █████╗    ███╔╝
-    ██╔══╝  ██║     ██╔═══╝     ██╔══╝   ███╔╝
-    ███████╗╚██████╗███████╗    ███████╗███████╗
-    ╚══════╝ ╚═════╝╚══════╝    ╚══════╝╚══════╝
+    ███████╗ ██████╗██████╗ ███████╗███████╗
+    ██╔════╝██╔════╝╚════██╗██╔════╝╚══███╔╝
+    █████╗  ██║      █████╔╝█████╗    ███╔╝
+    ██╔══╝  ██║     ██╔═══╝ ██╔══╝   ███╔╝
+    ███████╗╚██████╗███████╗███████╗███████╗
+    ╚══════╝ ╚═════╝╚══════╝╚══════╝╚══════╝
 ${COLORS.reset}
 ${COLORS.cyan}    ═══════════════════════════════════════════════════════════════════════${COLORS.reset}
 ${COLORS.yellow}                    AWS IMDSv2 Exploitation Tool${COLORS.reset}

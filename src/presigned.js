@@ -72,7 +72,14 @@ export async function discoverPresignedURLs(proxyUrl, token) {
 
       if (response.data) {
         logInfo("Available metadata paths:");
-        console.log(response.data);
+        const paths = response.data.split('\n').filter(p => p.trim());
+        paths.forEach((path, index) => {
+          const isLast = index === paths.length - 1;
+          const prefix = isLast ? "└─" : "├─";
+          const isDirectory = path.endsWith('/');
+          const icon = isDirectory ? "📁" : "📄";
+          console.log(`  ${prefix} ${icon} ${path}`);
+        });
       }
     } catch (error) {
     }

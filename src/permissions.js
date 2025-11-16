@@ -30,6 +30,7 @@ export async function discoverPermissionsByTesting() {
     { permission: "secretsmanager:ListSecrets", command: "aws secretsmanager list-secrets --max-results 1 --output json" },
     { permission: "ssm:DescribeParameters", command: "aws ssm describe-parameters --max-results 1 --output json" },
     { permission: "lambda:ListFunctions", command: "aws lambda list-functions --max-items 1 --output json" },
+    { permission: "ec2:RunInstances", command: "aws ec2 run-instances --dry-run --image-id ami-12345678 --instance-type t2.micro 2>&1 || true" },
   ];
 
   for (const test of permissionTests) {
@@ -190,12 +191,19 @@ export function matchesPermission(permission, pattern) {
   const [permService, permAction] = permission.split(":");
   const [patternService, patternAction] = pattern.split(":");
 
-  if (permService === patternService && permAction === "*") {
+  // Check if services match
+  if (permService !== patternService) {
+    return false;
+  }
+
+  // If permission action is wildcard, it matches everything in that service
+  if (permAction === "*") {
     return true;
   }
 
-  const permRegex = new RegExp("^" + pattern.replace("*", ".*") + "$");
-  return permRegex.test(permission);
+  // Create regex from the permission (which may have wildcards) and test against pattern
+  const permRegex = new RegExp("^" + permission.replace(/\*/g, ".*") + "$");
+  return permRegex.test(pattern);
 }
 
 export function extractPermissions(
@@ -248,23 +256,36 @@ export async function enumerateRolePermissions(roleName) {
       const policiesOutput = await executeAWSCommand(policiesCommand);
       const attachedPolicies = JSON.parse(policiesOutput);
 
-      for (const policy of attachedPolicies.AttachedPolicies) {
-        log(`  Analyzing policy: ${policy.PolicyName}`);
+      // Fetch all managed policies in parallel
+      if (attachedPolicies.AttachedPolicies.length > 0) {
+        log(`  Fetching ${attachedPolicies.AttachedPolicies.length} managed policies in parallel...`);
 
-        const versionCommand = `aws iam get-policy --policy-arn ${policy.PolicyArn} --query "Policy.DefaultVersionId" --output text`;
-        const versionId = await executeAWSCommand(versionCommand);
+        const policyPromises = attachedPolicies.AttachedPolicies.map(async (policy) => {
+          const versionCommand = `aws iam get-policy --policy-arn ${policy.PolicyArn} --query "Policy.DefaultVersionId" --output text`;
+          const versionId = await executeAWSCommand(versionCommand);
 
-        const policyCommand = `aws iam get-policy-version --policy-arn ${policy.PolicyArn} --version-id ${versionId} --output json`;
-        const policyOutput = await executeAWSCommand(policyCommand);
-        const policyDocument = JSON.parse(policyOutput);
+          const policyCommand = `aws iam get-policy-version --policy-arn ${policy.PolicyArn} --version-id ${versionId} --output json`;
+          const policyOutput = await executeAWSCommand(policyCommand);
+          const policyDocument = JSON.parse(policyOutput);
 
-        extractPermissions(
-          policyDocument.PolicyVersion.Document,
-          allPermissions,
-          permissionsByService,
-          permissionSources,
-          `Managed Policy: ${policy.PolicyName}`
-        );
+          return {
+            name: policy.PolicyName,
+            document: policyDocument.PolicyVersion.Document,
+          };
+        });
+
+        const policyResults = await Promise.all(policyPromises);
+
+        policyResults.forEach((result) => {
+          log(`  ✓ ${result.name}`, null, "green");
+          extractPermissions(
+            result.document,
+            allPermissions,
+            permissionsByService,
+            permissionSources,
+            `Managed Policy: ${result.name}`
+          );
+        });
       }
 
       log("Checking inline policies...");
@@ -272,20 +293,33 @@ export async function enumerateRolePermissions(roleName) {
       const inlinePoliciesOutput = await executeAWSCommand(inlinePoliciesCommand);
       const inlinePolicies = JSON.parse(inlinePoliciesOutput);
 
-      for (const policyName of inlinePolicies.PolicyNames) {
-        log(`  Analyzing inline policy: ${policyName}`);
+      // Fetch all inline policies in parallel
+      if (inlinePolicies.PolicyNames.length > 0) {
+        log(`  Fetching ${inlinePolicies.PolicyNames.length} inline policies in parallel...`);
 
-        const inlineCommand = `aws iam get-role-policy --role-name ${roleName} --policy-name ${policyName} --output json`;
-        const inlineOutput = await executeAWSCommand(inlineCommand);
-        const inlinePolicy = JSON.parse(inlineOutput);
+        const inlinePolicyPromises = inlinePolicies.PolicyNames.map(async (policyName) => {
+          const inlineCommand = `aws iam get-role-policy --role-name ${roleName} --policy-name ${policyName} --output json`;
+          const inlineOutput = await executeAWSCommand(inlineCommand);
+          const inlinePolicy = JSON.parse(inlineOutput);
 
-        extractPermissions(
-          inlinePolicy.PolicyDocument,
-          allPermissions,
-          permissionsByService,
-          permissionSources,
-          `Inline Policy: ${policyName}`
-        );
+          return {
+            name: policyName,
+            document: inlinePolicy.PolicyDocument,
+          };
+        });
+
+        const inlinePolicyResults = await Promise.all(inlinePolicyPromises);
+
+        inlinePolicyResults.forEach((result) => {
+          log(`  ✓ ${result.name}`, null, "green");
+          extractPermissions(
+            result.document,
+            allPermissions,
+            permissionsByService,
+            permissionSources,
+            `Inline Policy: ${result.name}`
+          );
+        });
       }
 
       for (const permission of allPermissions) {
@@ -324,6 +358,14 @@ export async function enumerateRolePermissions(roleName) {
           "cyan"
         );
       }
+      logSeparator();
+
+      // Debug: Show all individual permissions
+      logInfo(`DEBUG - All ${allPermissions.size} permissions found:`);
+      const sortedPerms = Array.from(allPermissions).sort();
+      sortedPerms.forEach((perm) => {
+        log(`  - ${perm}`, null, "dim");
+      });
       logSeparator();
 
       return {
@@ -366,60 +408,29 @@ export async function checkPassRolePolicy(roleName) {
 
       let hasPassRole = false;
 
-      for (const policy of attachedPolicies.AttachedPolicies) {
-        const policyArn = policy.PolicyArn;
-        log(`Checking policy: ${policy.PolicyName}`);
+      // Fetch all managed policies in parallel
+      if (attachedPolicies.AttachedPolicies.length > 0) {
+        log(`Checking ${attachedPolicies.AttachedPolicies.length} managed policies in parallel...`);
 
-        const versionCommand = `aws iam get-policy --policy-arn ${policyArn} --query "Policy.DefaultVersionId" --output text`;
-        const versionId = await executeAWSCommand(versionCommand);
+        const policyPromises = attachedPolicies.AttachedPolicies.map(async (policy) => {
+          const versionCommand = `aws iam get-policy --policy-arn ${policy.PolicyArn} --query "Policy.DefaultVersionId" --output text`;
+          const versionId = await executeAWSCommand(versionCommand);
 
-        const policyCommand = `aws iam get-policy-version --policy-arn ${policyArn} --version-id ${versionId} --output json`;
-        const policyOutput = await executeAWSCommand(policyCommand);
-        const policyDocument = JSON.parse(policyOutput);
+          const policyCommand = `aws iam get-policy-version --policy-arn ${policy.PolicyArn} --version-id ${versionId} --output json`;
+          const policyOutput = await executeAWSCommand(policyCommand);
+          const policyDocument = JSON.parse(policyOutput);
 
-        const statements = policyDocument.PolicyVersion.Document.Statement;
+          return {
+            name: policy.PolicyName,
+            statements: policyDocument.PolicyVersion.Document.Statement,
+          };
+        });
 
-        for (const statement of statements) {
-          if (statement.Effect === "Allow") {
-            const actions = Array.isArray(statement.Action)
-              ? statement.Action
-              : [statement.Action];
+        const policyResults = await Promise.all(policyPromises);
 
-            if (
-              actions.some(
-                (action) =>
-                  action === "iam:PassRole" ||
-                  action === "iam:*" ||
-                  action === "*"
-              )
-            ) {
-              hasPassRole = true;
-              logSuccess(
-                `Found PassRole permission in policy: ${policy.PolicyName}`
-              );
-              break;
-            }
-          }
-        }
-
-        if (hasPassRole) break;
-      }
-
-      const inlinePoliciesCommand = `aws iam list-role-policies --role-name ${roleName} --output json`;
-      const inlinePoliciesOutput = await executeAWSCommand(inlinePoliciesCommand);
-      const inlinePolicies = JSON.parse(inlinePoliciesOutput);
-
-      if (!hasPassRole && inlinePolicies.PolicyNames.length > 0) {
-        for (const policyName of inlinePolicies.PolicyNames) {
-          log(`Checking inline policy: ${policyName}`);
-
-          const inlineCommand = `aws iam get-role-policy --role-name ${roleName} --policy-name ${policyName} --output json`;
-          const inlineOutput = await executeAWSCommand(inlineCommand);
-          const inlinePolicy = JSON.parse(inlineOutput);
-
-          const statements = inlinePolicy.PolicyDocument.Statement;
-
-          for (const statement of statements) {
+        // Check for PassRole in fetched policies
+        for (const result of policyResults) {
+          for (const statement of result.statements) {
             if (statement.Effect === "Allow") {
               const actions = Array.isArray(statement.Action)
                 ? statement.Action
@@ -435,13 +446,61 @@ export async function checkPassRolePolicy(roleName) {
               ) {
                 hasPassRole = true;
                 logSuccess(
-                  `Found PassRole permission in inline policy: ${policyName}`
+                  `Found PassRole permission in policy: ${result.name}`
                 );
                 break;
               }
             }
           }
+          if (hasPassRole) break;
+        }
+      }
 
+      const inlinePoliciesCommand = `aws iam list-role-policies --role-name ${roleName} --output json`;
+      const inlinePoliciesOutput = await executeAWSCommand(inlinePoliciesCommand);
+      const inlinePolicies = JSON.parse(inlinePoliciesOutput);
+
+      // Fetch all inline policies in parallel
+      if (!hasPassRole && inlinePolicies.PolicyNames.length > 0) {
+        log(`Checking ${inlinePolicies.PolicyNames.length} inline policies in parallel...`);
+
+        const inlinePolicyPromises = inlinePolicies.PolicyNames.map(async (policyName) => {
+          const inlineCommand = `aws iam get-role-policy --role-name ${roleName} --policy-name ${policyName} --output json`;
+          const inlineOutput = await executeAWSCommand(inlineCommand);
+          const inlinePolicy = JSON.parse(inlineOutput);
+
+          return {
+            name: policyName,
+            statements: inlinePolicy.PolicyDocument.Statement,
+          };
+        });
+
+        const inlinePolicyResults = await Promise.all(inlinePolicyPromises);
+
+        // Check for PassRole in fetched inline policies
+        for (const result of inlinePolicyResults) {
+          for (const statement of result.statements) {
+            if (statement.Effect === "Allow") {
+              const actions = Array.isArray(statement.Action)
+                ? statement.Action
+                : [statement.Action];
+
+              if (
+                actions.some(
+                  (action) =>
+                    action === "iam:PassRole" ||
+                    action === "iam:*" ||
+                    action === "*"
+                )
+              ) {
+                hasPassRole = true;
+                logSuccess(
+                  `Found PassRole permission in inline policy: ${result.name}`
+                );
+                break;
+              }
+            }
+          }
           if (hasPassRole) break;
         }
       }
