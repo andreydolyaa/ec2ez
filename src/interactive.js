@@ -279,46 +279,21 @@ export function buildAvailableActions(permissionResults) {
     actions.push({
       id: "13",
       name: "List S3 Bucket Objects",
-      description: "List all objects in all S3 buckets",
+      description: "List all objects in a specific S3 bucket",
       service: "S3",
       dangerous: false,
       handler: async (rl) => {
+        // First list available buckets
         try {
-          const output = await listS3Buckets();
-          logSeparator();
-
-          if (!output || output.trim() === "") {
-            logWarning("No buckets found");
-            return;
-          }
-
-          // Parse bucket names from output
-          const bucketNames = output
-            .trim()
-            .split('\n')
-            .map(line => line.trim().split(/\s+/).pop())
-            .filter(name => name);
-
-          if (bucketNames.length === 0) {
-            logWarning("No buckets to list");
-            return;
-          }
-
-          logInfo(`Listing objects in ${bucketNames.length} bucket(s)...`);
-          logSeparator();
-
-          for (const bucket of bucketNames) {
-            try {
-              logInfo(`Bucket: ${bucket}`);
-              await listS3Objects(bucket, "");
-              logSeparator();
-            } catch (error) {
-              logWarning(`Could not list objects in bucket: ${bucket}`);
-              logSeparator();
-            }
-          }
+          await listS3Buckets();
         } catch (error) {
-          logWarning("Could not list buckets");
+          logWarning("Could not list buckets, but you can still try entering a bucket name");
+        }
+        logSeparator();
+        const bucket = await askQuestion(rl, `${COLORS.cyan}Enter bucket name: ${COLORS.reset}`);
+        const prefix = await askQuestion(rl, `${COLORS.cyan}Enter prefix (optional, press Enter to skip): ${COLORS.reset}`);
+        if (bucket) {
+          await listS3Objects(bucket, prefix);
         }
       },
     });
