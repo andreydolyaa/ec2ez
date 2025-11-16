@@ -191,12 +191,19 @@ export function matchesPermission(permission, pattern) {
   const [permService, permAction] = permission.split(":");
   const [patternService, patternAction] = pattern.split(":");
 
-  if (permService === patternService && permAction === "*") {
+  // Check if services match
+  if (permService !== patternService) {
+    return false;
+  }
+
+  // If permission action is wildcard, it matches everything in that service
+  if (permAction === "*") {
     return true;
   }
 
-  const permRegex = new RegExp("^" + pattern.replace("*", ".*") + "$");
-  return permRegex.test(permission);
+  // Create regex from the permission (which may have wildcards) and test against pattern
+  const permRegex = new RegExp("^" + permission.replace(/\*/g, ".*") + "$");
+  return permRegex.test(pattern);
 }
 
 export function extractPermissions(
