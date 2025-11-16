@@ -328,7 +328,6 @@ async function main() {
     }
 
     logInfo("Enumerating role permissions...");
-    await sleep(600);
     const permissionResults = await enumerateRolePermissions(iamRole);
 
     if (permissionResults) {
