@@ -51,11 +51,7 @@ export function buildAvailableActions(permissionResults) {
   const permissions = permissionResults.allPermissions;
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "ec2:RunInstances") ||
-        matchesPermission(p, "ec2:*")
-    )
+    permissions.some((p) => matchesPermission(p, "ec2:RunInstances"))
   ) {
     actions.push({
       id: "1",
@@ -68,11 +64,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "ec2:DescribeInstances") ||
-        matchesPermission(p, "ec2:*")
-    )
+    permissions.some((p) => matchesPermission(p, "ec2:DescribeInstances"))
   ) {
     actions.push({
       id: "2",
@@ -88,8 +80,7 @@ export function buildAvailableActions(permissionResults) {
     permissions.some(
       (p) =>
         matchesPermission(p, "s3:ListAllMyBuckets") ||
-        matchesPermission(p, "s3:ListBucket") ||
-        matchesPermission(p, "s3:*")
+        matchesPermission(p, "s3:ListBucket")
     )
   ) {
     actions.push({
@@ -103,11 +94,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "secretsmanager:ListSecrets") ||
-        matchesPermission(p, "secretsmanager:*")
-    )
+    permissions.some((p) => matchesPermission(p, "secretsmanager:ListSecrets"))
   ) {
     actions.push({
       id: "4",
@@ -120,11 +107,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "ssm:DescribeParameters") ||
-        matchesPermission(p, "ssm:*")
-    )
+    permissions.some((p) => matchesPermission(p, "ssm:DescribeParameters"))
   ) {
     actions.push({
       id: "5",
@@ -137,10 +120,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "iam:ListUsers") || matchesPermission(p, "iam:*")
-    )
+    permissions.some((p) => matchesPermission(p, "iam:ListUsers"))
   ) {
     actions.push({
       id: "6",
@@ -153,10 +133,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "iam:ListRoles") || matchesPermission(p, "iam:*")
-    )
+    permissions.some((p) => matchesPermission(p, "iam:ListRoles"))
   ) {
     actions.push({
       id: "7",
@@ -169,11 +146,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "lambda:ListFunctions") ||
-        matchesPermission(p, "lambda:*")
-    )
+    permissions.some((p) => matchesPermission(p, "lambda:ListFunctions"))
   ) {
     actions.push({
       id: "8",
@@ -186,11 +159,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "ssm:GetParameter") ||
-        matchesPermission(p, "ssm:*")
-    )
+    permissions.some((p) => matchesPermission(p, "ssm:GetParameter"))
   ) {
     actions.push({
       id: "9",
@@ -215,11 +184,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "secretsmanager:GetSecretValue") ||
-        matchesPermission(p, "secretsmanager:*")
-    )
+    permissions.some((p) => matchesPermission(p, "secretsmanager:GetSecretValue"))
   ) {
     actions.push({
       id: "10",
@@ -244,11 +209,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "s3:GetObject") ||
-        matchesPermission(p, "s3:*")
-    )
+    permissions.some((p) => matchesPermission(p, "s3:GetObject"))
   ) {
     actions.push({
       id: "11",
@@ -286,11 +247,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "s3:PutObject") ||
-        matchesPermission(p, "s3:*")
-    )
+    permissions.some((p) => matchesPermission(p, "s3:PutObject"))
   ) {
     actions.push({
       id: "12",
@@ -317,11 +274,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "s3:ListBucket") ||
-        matchesPermission(p, "s3:*")
-    )
+    permissions.some((p) => matchesPermission(p, "s3:ListBucket"))
   ) {
     actions.push({
       id: "13",
@@ -347,11 +300,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "lambda:InvokeFunction") ||
-        matchesPermission(p, "lambda:*")
-    )
+    permissions.some((p) => matchesPermission(p, "lambda:InvokeFunction"))
   ) {
     actions.push({
       id: "14",
@@ -377,11 +326,7 @@ export function buildAvailableActions(permissionResults) {
   }
 
   if (
-    permissions.some(
-      (p) =>
-        matchesPermission(p, "ssm:PutParameter") ||
-        matchesPermission(p, "ssm:*")
-    )
+    permissions.some((p) => matchesPermission(p, "ssm:PutParameter"))
   ) {
     actions.push({
       id: "15",
