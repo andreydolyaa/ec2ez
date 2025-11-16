@@ -360,6 +360,14 @@ export async function enumerateRolePermissions(roleName) {
       }
       logSeparator();
 
+      // Debug: Show all individual permissions
+      logInfo(`DEBUG - All ${allPermissions.size} permissions found:`);
+      const sortedPerms = Array.from(allPermissions).sort();
+      sortedPerms.forEach((perm) => {
+        log(`  - ${perm}`, null, "dim");
+      });
+      logSeparator();
+
       return {
         totalPermissions: allPermissions.size,
         dangerousPermissions: dangerousPermissions.length,
