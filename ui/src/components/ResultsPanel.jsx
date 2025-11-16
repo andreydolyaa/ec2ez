@@ -50,11 +50,12 @@ export default function ResultsPanel({ sessionData, isRunning }) {
     try {
       const res = await axios.post(`${API_URL}/api/s3/list-objects`, { bucket, prefix: '' });
       const objects = res.data.objects || [];
-      setData(prev => ({ ...prev, selectedBucket: bucket, bucketObjects: objects }));
+      const objectsArray = Array.isArray(objects) ? objects : [];
+      setData(prev => ({ ...prev, selectedBucket: bucket, bucketObjects: objectsArray }));
       setExpandedSection('s3-objects');
     } catch (error) {
       console.error('Error listing bucket objects:', error);
-      setData(prev => ({ ...prev, bucketObjects: [] }));
+      setData(prev => ({ ...prev, selectedBucket: bucket, bucketObjects: [] }));
     }
     setLoading(prev => ({ ...prev, bucketObjects: false }));
   };
@@ -161,6 +162,14 @@ export default function ResultsPanel({ sessionData, isRunning }) {
 
   const hasData = sessionData.accountId || sessionData.roles?.length > 0;
 
+  // Check if user has a specific permission
+  const hasPermission = (perm) => {
+    if (!sessionData.permissions || !sessionData.permissions.allPermissions) return false;
+    return sessionData.permissions.allPermissions.some(p =>
+      p === perm || p === perm.split(':')[0] + ':*' || p === '*'
+    );
+  };
+
   return (
     <div className="results-panel">
       <div className="results-header">
@@ -209,7 +218,12 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               expanded={expandedSection === 'metadata'}
               onToggle={() => toggleSection('metadata')}
             >
-              <p className="text-muted">Metadata entries discovered from IMDS</p>
+              <div className="metadata-info">
+                <p className="text-muted">Discovered {sessionData.metadata} metadata entries from EC2 IMDS</p>
+                <p className="text-muted" style={{ fontSize: '11px', marginTop: '8px' }}>
+                  Includes: instance-id, instance-type, placement, availability-zone, security-groups, network interfaces, IAM info, tags, user-data, etc.
+                </p>
+              </div>
             </Section>
           )}
 
@@ -241,7 +255,8 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             </Section>
           )}
 
-          {/* S3 Operations */}
+          {/* S3 Operations - only show if has s3 permission or buckets already discovered */}
+          {(hasPermission('s3:ListAllMyBuckets') || hasPermission('s3:ListBucket') || data.s3Buckets.length > 0) && (
           <Section
             title="S3 Operations"
             badge={data.s3Buckets.length > 0 && <span className="badge badge-info">{data.s3Buckets.length} buckets</span>}
@@ -274,18 +289,19 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </>
             )}
           </Section>
+          )}
 
           {/* S3 Bucket Objects (dynamic) */}
           {data.selectedBucket && (
             <Section
               title={`Objects in ${data.selectedBucket}`}
-              badge={<span className="badge badge-info">{data.bucketObjects.length} objects</span>}
+              badge={<span className="badge badge-info">{Array.isArray(data.bucketObjects) ? data.bucketObjects.length : 0} objects</span>}
               expanded={expandedSection === 's3-objects'}
               onToggle={() => toggleSection('s3-objects')}
             >
               {loading.bucketObjects ? (
                 <div className="loading"><span className="spinner"></span> Loading...</div>
-              ) : data.bucketObjects.length > 0 ? (
+              ) : (Array.isArray(data.bucketObjects) && data.bucketObjects.length > 0) ? (
                 <ul className="resource-list">
                   {data.bucketObjects.map((obj, idx) => (
                     <li key={idx}><code>{obj}</code></li>
@@ -297,7 +313,8 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             </Section>
           )}
 
-          {/* Secrets Manager */}
+          {/* Secrets Manager - only show if has secretsmanager permission */}
+          {hasPermission('secretsmanager:ListSecrets') && (
           <Section
             title="Secrets Manager"
             badge={data.secrets.length > 0 && <span className="badge badge-danger">{data.secrets.length} secrets</span>}
@@ -319,8 +336,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </ul>
             )}
           </Section>
+          )}
 
-          {/* SSM Parameters */}
+          {/* SSM Parameters - only show if has ssm permission */}
+          {hasPermission('ssm:DescribeParameters') && (
           <Section
             title="SSM Parameters"
             badge={data.ssmParams.length > 0 && <span className="badge badge-warning">{data.ssmParams.length} params</span>}
@@ -353,8 +372,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </>
             )}
           </Section>
+          )}
 
-          {/* Lambda Functions */}
+          {/* Lambda Functions - only show if has lambda permission */}
+          {hasPermission('lambda:ListFunctions') && (
           <Section
             title="Lambda Functions"
             badge={data.lambdaFunctions.length > 0 && <span className="badge badge-info">{data.lambdaFunctions.length} functions</span>}
@@ -376,8 +397,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </ul>
             )}
           </Section>
+          )}
 
-          {/* IAM Users */}
+          {/* IAM Users - only show if has iam permission */}
+          {hasPermission('iam:ListUsers') && (
           <Section
             title="IAM Users"
             badge={data.iamUsers.length > 0 && <span className="badge badge-info">{data.iamUsers.length} users</span>}
@@ -396,8 +419,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </ul>
             )}
           </Section>
+          )}
 
-          {/* IAM Roles */}
+          {/* IAM Roles - only show if has iam permission */}
+          {hasPermission('iam:ListRoles') && (
           <Section
             title="IAM Roles (AWS)"
             badge={data.iamRoles.length > 0 && <span className="badge badge-info">{data.iamRoles.length} roles</span>}
@@ -416,8 +441,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </ul>
             )}
           </Section>
+          )}
 
-          {/* EC2 Instances */}
+          {/* EC2 Instances - only show if has ec2 permission */}
+          {hasPermission('ec2:DescribeInstances') && (
           <Section
             title="EC2 Instances"
             badge={data.ec2Instances.length > 0 && <span className="badge badge-info">{data.ec2Instances.length} instances</span>}
@@ -436,8 +463,9 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </ul>
             )}
           </Section>
+          )}
 
-          {/* Advanced Operations */}
+          {/* Advanced Operations - always show */}
           <Section
             title="Advanced Operations"
             badge={<span className="badge badge-danger">SENSITIVE</span>}
