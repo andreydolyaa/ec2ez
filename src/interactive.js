@@ -1,4 +1,6 @@
 import readline from "readline";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { COLORS } from "./config.js";
 import {
   logInfo,
@@ -6,6 +8,7 @@ import {
   logSeparator,
   logWarning,
   log,
+  logError,
 } from "./utils.js";
 import { matchesPermission } from "./permissions.js";
 import {
@@ -25,6 +28,8 @@ import {
   invokeLambda,
   createSSMParameter,
 } from "./aws.js";
+
+const execAsync = promisify(exec);
 
 function createInterface() {
   return readline.createInterface({
@@ -401,6 +406,48 @@ export function buildAvailableActions(permissionResults) {
       },
     });
   }
+
+  // Always available: Shell command execution
+  actions.push({
+    id: "16",
+    name: "Run Shell Command",
+    description: "Execute shell commands on the host (ls, pwd, find, etc.)",
+    service: "System",
+    dangerous: false,
+    handler: async (rl) => {
+      logInfo("Examples: ls, pwd, ls -la /tmp, find . -name '*.txt', cat /etc/hosts");
+      logSeparator();
+      const command = await askQuestion(rl, `${COLORS.cyan}Enter shell command: ${COLORS.reset}`);
+      if (!command) {
+        logWarning("No command entered");
+        return;
+      }
+
+      try {
+        logInfo(`Executing: ${command}`);
+        const { stdout, stderr } = await execAsync(command);
+
+        if (stdout) {
+          console.log(stdout);
+        }
+        if (stderr) {
+          logWarning("stderr:");
+          console.log(stderr);
+        }
+
+        logSuccess("Command executed successfully");
+      } catch (error) {
+        logError("Command execution failed");
+        if (error.stdout) {
+          console.log(error.stdout);
+        }
+        if (error.stderr) {
+          log("Error output:", null, "red");
+          console.log(error.stderr);
+        }
+      }
+    },
+  });
 
   return actions;
 }
