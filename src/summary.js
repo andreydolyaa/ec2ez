@@ -36,6 +36,15 @@ export class SessionSummary {
         wasDecoded: false,
         isCloudInit: false,
       },
+      cloudwatch: {
+        scanned: false,
+        logGroupsScanned: 0,
+        logStreamsScanned: 0,
+        logEventsAnalyzed: 0,
+        secretsFound: 0,
+        criticalSecretCount: 0,
+        logGroupsWithSecrets: [],
+      },
       recommendations: [],
       timestamp: new Date().toISOString(),
     };
@@ -69,6 +78,10 @@ export class SessionSummary {
 
   setUserData(data) {
     this.findings.userData = { ...this.findings.userData, ...data };
+  }
+
+  setCloudWatch(data) {
+    this.findings.cloudwatch = { ...this.findings.cloudwatch, ...data };
   }
 
   addRecommendation(recommendation) {
@@ -155,6 +168,30 @@ export class SessionSummary {
         level: "info",
         category: "User Data",
         message: "Cloud-init configuration detected - review startup scripts for sensitive operations",
+      });
+    }
+
+    if (this.findings.cloudwatch.scanned && this.findings.cloudwatch.criticalSecretCount > 0) {
+      recs.push({
+        level: "critical",
+        category: "CloudWatch Logs",
+        message: `Found ${this.findings.cloudwatch.criticalSecretCount} critical secret(s) in CloudWatch logs - IMMEDIATE ACTION REQUIRED`,
+      });
+    }
+
+    if (this.findings.cloudwatch.scanned && this.findings.cloudwatch.secretsFound > 0) {
+      recs.push({
+        level: "warning",
+        category: "CloudWatch Logs",
+        message: `Found ${this.findings.cloudwatch.secretsFound} potential secret(s) in logs - review and rotate credentials`,
+      });
+    }
+
+    if (this.findings.cloudwatch.scanned && this.findings.cloudwatch.logGroupsWithSecrets.length > 0) {
+      recs.push({
+        level: "info",
+        category: "CloudWatch Logs",
+        message: `Secrets found in ${this.findings.cloudwatch.logGroupsWithSecrets.length} log group(s) - applications may be logging sensitive data`,
       });
     }
 
@@ -245,6 +282,55 @@ export class SessionSummary {
         logWarning(`  Total secrets found: ${this.findings.userData.secretCount}`);
       } else {
         log("  No secrets detected", null, "dim");
+      }
+      console.log();
+    }
+
+    if (this.findings.cloudwatch.scanned) {
+      log(`${COLORS.bright}CloudWatch Logs:${COLORS.reset}`, null, "cyan");
+      logSuccess(
+        `  ✓ Scanned ${this.findings.cloudwatch.logGroupsScanned} log group(s)`
+      );
+      log(
+        `  Log streams scanned: ${this.findings.cloudwatch.logStreamsScanned}`,
+        null,
+        "dim"
+      );
+      log(
+        `  Log events analyzed: ${this.findings.cloudwatch.logEventsAnalyzed}`,
+        null,
+        "dim"
+      );
+
+      if (this.findings.cloudwatch.secretsFound > 0) {
+        if (this.findings.cloudwatch.criticalSecretCount > 0) {
+          log(
+            `  ⚠ CRITICAL: ${this.findings.cloudwatch.criticalSecretCount} critical secret(s) found`,
+            null,
+            "red"
+          );
+        }
+        logWarning(
+          `  Total secrets found: ${this.findings.cloudwatch.secretsFound}`
+        );
+
+        if (this.findings.cloudwatch.logGroupsWithSecrets.length > 0) {
+          log("  Log groups with secrets:", null, "yellow");
+          this.findings.cloudwatch.logGroupsWithSecrets
+            .slice(0, 5)
+            .forEach((group) => {
+              log(`    - ${group}`, null, "yellow");
+            });
+          if (this.findings.cloudwatch.logGroupsWithSecrets.length > 5) {
+            log(
+              `    ... and ${this.findings.cloudwatch.logGroupsWithSecrets.length - 5} more`,
+              null,
+              "dim"
+            );
+          }
+        }
+      } else {
+        log("  No secrets detected in logs", null, "dim");
       }
       console.log();
     }

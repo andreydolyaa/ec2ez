@@ -29,6 +29,10 @@ import {
   createSSMParameter,
   extractAllSecrets,
 } from "./aws.js";
+import {
+  scanCloudWatchLogs,
+  exportCloudWatchFindings,
+} from "./cloudwatch.js";
 
 const execAsync = promisify(exec);
 
@@ -365,6 +369,51 @@ export function buildAvailableActions(permissionResults) {
         const paramType = await askQuestion(rl, `${COLORS.cyan}Enter type (String/SecureString/StringList) [default: String]: ${COLORS.reset}`);
         if (paramName && value) {
           await createSSMParameter(paramName, value, paramType || "String");
+        }
+      },
+    });
+  }
+
+  // CloudWatch Logs extraction - requires logs:DescribeLogGroups permission
+  if (
+    permissions.some((p) => matchesPermission(p, "logs:DescribeLogGroups"))
+  ) {
+    actions.push({
+      id: "17",
+      name: "Extract CloudWatch Logs & Search for Secrets",
+      description: "Download CloudWatch logs and scan for credentials/secrets",
+      service: "CloudWatch Logs",
+      dangerous: true,
+      handler: async (rl) => {
+        logInfo("This will scan CloudWatch logs for sensitive information...");
+        logSeparator();
+        const scanAll = await askQuestion(
+          rl,
+          `${COLORS.cyan}Scan all log groups? (y/n) [default: y]: ${COLORS.reset}`
+        );
+
+        let results;
+        if (scanAll.toLowerCase() === "n" || scanAll.toLowerCase() === "no") {
+          const logGroupName = await askQuestion(
+            rl,
+            `${COLORS.cyan}Enter log group name to scan: ${COLORS.reset}`
+          );
+          if (logGroupName) {
+            results = await scanCloudWatchLogs(logGroupName, 3, 100);
+          }
+        } else {
+          results = await scanCloudWatchLogs(null, 3, 100);
+        }
+
+        if (results && results.secretsFound.length > 0) {
+          logSeparator();
+          const exportChoice = await askQuestion(
+            rl,
+            `${COLORS.cyan}Export findings to file? (y/n) [default: y]: ${COLORS.reset}`
+          );
+          if (exportChoice.toLowerCase() !== "n" && exportChoice.toLowerCase() !== "no") {
+            exportCloudWatchFindings(results);
+          }
         }
       },
     });

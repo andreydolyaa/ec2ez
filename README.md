@@ -31,6 +31,7 @@ Unauthorized access to computer systems is illegal. The authors assume no liabil
 - Comprehensive Permission Discovery: Enumerates IAM policies and identifies dangerous permissions
 - S3 Bucket Discovery: Extracts bucket names from IMDS metadata and tests access with each role
 - Pre-signed URL Generation: Automatically generates pre-signed URLs when direct access fails
+- CloudWatch Logs Extraction: Downloads and scans CloudWatch logs for accidentally logged secrets
 - Interactive Menu: Permission-based action menu for post-exploitation
 - Session Summary: Detailed report of all findings, credentials, and recommendations
 
@@ -221,6 +222,7 @@ After credential extraction, the tool provides an interactive menu with actions 
 - Secrets Manager: List secrets
 - SSM Parameter Store: List parameters
 - Lambda: List functions
+- CloudWatch Logs: Extract and scan logs for secrets (automatically detects AWS keys, passwords, tokens, database URLs, etc.)
 
 Actions are automatically available based on the IAM permissions of the extracted credentials.
 
@@ -240,12 +242,16 @@ ec2ez/
 │   ├── interactive.js     # Interactive menu system
 │   ├── presigned.js       # Pre-signed URL discovery
 │   ├── s3discovery.js     # S3 bucket discovery and testing
+│   ├── userdata.js        # User data extraction and secret scanning
+│   ├── cloudwatch.js      # CloudWatch logs extraction and analysis
 │   └── summary.js         # Session summary and reporting
 └── tests/                 # Test suite
     ├── config.test.js     # Configuration tests
     ├── utils.test.js      # Utility tests
     ├── imds.test.js       # IMDS tests
     ├── summary.test.js    # Summary tests
+    ├── userdata.test.js   # User data extraction tests
+    ├── cloudwatch.test.js # CloudWatch logs tests
     └── aws.test.js        # AWS tests
 ```
 
