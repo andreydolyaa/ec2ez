@@ -368,6 +368,10 @@ export async function buildAvailableActions(permissionResults) {
         }
       },
     });
+      }
+    } catch (error) {
+      // No buckets or error - don't add to menu
+    }
   }
 
   // Upload S3 Object - check if buckets exist
