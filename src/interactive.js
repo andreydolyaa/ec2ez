@@ -6,7 +6,6 @@ import {
   logSeparator,
   logWarning,
   log,
-  promptUser,
 } from "./utils.js";
 import { matchesPermission } from "./permissions.js";
 import {
@@ -194,8 +193,15 @@ export function buildAvailableActions(permissionResults) {
       description: "Get the actual value of an SSM parameter",
       service: "SSM",
       dangerous: true,
-      handler: async () => {
-        const paramName = await promptUser("Enter parameter name: ");
+      handler: async (rl) => {
+        // First list available parameters
+        try {
+          await listSSMParameters();
+        } catch (error) {
+          logWarning("Could not list parameters, but you can still try entering a name");
+        }
+        logSeparator();
+        const paramName = await askQuestion(rl, `${COLORS.cyan}Enter parameter name: ${COLORS.reset}`);
         if (paramName) {
           await getSSMParameter(paramName);
         }
@@ -216,8 +222,15 @@ export function buildAvailableActions(permissionResults) {
       description: "Get the actual value of a secret from Secrets Manager",
       service: "Secrets Manager",
       dangerous: true,
-      handler: async () => {
-        const secretName = await promptUser("Enter secret name/ARN: ");
+      handler: async (rl) => {
+        // First list available secrets
+        try {
+          await listSecrets();
+        } catch (error) {
+          logWarning("Could not list secrets, but you can still try entering a name");
+        }
+        logSeparator();
+        const secretName = await askQuestion(rl, `${COLORS.cyan}Enter secret name/ARN: ${COLORS.reset}`);
         if (secretName) {
           await getSecretValue(secretName);
         }
@@ -238,10 +251,28 @@ export function buildAvailableActions(permissionResults) {
       description: "Download a file from an S3 bucket",
       service: "S3",
       dangerous: false,
-      handler: async () => {
-        const bucket = await promptUser("Enter bucket name: ");
-        const key = await promptUser("Enter object key (path): ");
-        const outputPath = await promptUser("Enter local save path: ");
+      handler: async (rl) => {
+        // First list available buckets
+        try {
+          await listS3Buckets();
+        } catch (error) {
+          logWarning("Could not list buckets, but you can still try entering a bucket name");
+        }
+        logSeparator();
+        const bucket = await askQuestion(rl, `${COLORS.cyan}Enter bucket name: ${COLORS.reset}`);
+        if (!bucket) return;
+
+        // Try to list objects in the bucket
+        try {
+          await listS3Objects(bucket, "");
+          logSeparator();
+        } catch (error) {
+          logWarning("Could not list objects in bucket");
+          logSeparator();
+        }
+
+        const key = await askQuestion(rl, `${COLORS.cyan}Enter object key (path): ${COLORS.reset}`);
+        const outputPath = await askQuestion(rl, `${COLORS.cyan}Enter local save path: ${COLORS.reset}`);
         if (bucket && key && outputPath) {
           await downloadS3Object(bucket, key, outputPath);
         }
@@ -262,10 +293,17 @@ export function buildAvailableActions(permissionResults) {
       description: "Upload a file to an S3 bucket",
       service: "S3",
       dangerous: true,
-      handler: async () => {
-        const localPath = await promptUser("Enter local file path: ");
-        const bucket = await promptUser("Enter bucket name: ");
-        const key = await promptUser("Enter object key (path in S3): ");
+      handler: async (rl) => {
+        // First list available buckets
+        try {
+          await listS3Buckets();
+        } catch (error) {
+          logWarning("Could not list buckets, but you can still try entering a bucket name");
+        }
+        logSeparator();
+        const localPath = await askQuestion(rl, `${COLORS.cyan}Enter local file path: ${COLORS.reset}`);
+        const bucket = await askQuestion(rl, `${COLORS.cyan}Enter bucket name: ${COLORS.reset}`);
+        const key = await askQuestion(rl, `${COLORS.cyan}Enter object key (path in S3): ${COLORS.reset}`);
         if (localPath && bucket && key) {
           await uploadS3Object(localPath, bucket, key);
         }
@@ -286,9 +324,16 @@ export function buildAvailableActions(permissionResults) {
       description: "List all objects in a specific S3 bucket",
       service: "S3",
       dangerous: false,
-      handler: async () => {
-        const bucket = await promptUser("Enter bucket name: ");
-        const prefix = await promptUser("Enter prefix (optional, press Enter to skip): ");
+      handler: async (rl) => {
+        // First list available buckets
+        try {
+          await listS3Buckets();
+        } catch (error) {
+          logWarning("Could not list buckets, but you can still try entering a bucket name");
+        }
+        logSeparator();
+        const bucket = await askQuestion(rl, `${COLORS.cyan}Enter bucket name: ${COLORS.reset}`);
+        const prefix = await askQuestion(rl, `${COLORS.cyan}Enter prefix (optional, press Enter to skip): ${COLORS.reset}`);
         if (bucket) {
           await listS3Objects(bucket, prefix);
         }
@@ -309,9 +354,16 @@ export function buildAvailableActions(permissionResults) {
       description: "Execute a Lambda function with custom payload",
       service: "Lambda",
       dangerous: true,
-      handler: async () => {
-        const functionName = await promptUser("Enter function name: ");
-        const payload = await promptUser("Enter JSON payload (or press Enter for {}): ");
+      handler: async (rl) => {
+        // First list available Lambda functions
+        try {
+          await listLambdaFunctions();
+        } catch (error) {
+          logWarning("Could not list Lambda functions, but you can still try entering a function name");
+        }
+        logSeparator();
+        const functionName = await askQuestion(rl, `${COLORS.cyan}Enter function name: ${COLORS.reset}`);
+        const payload = await askQuestion(rl, `${COLORS.cyan}Enter JSON payload (or press Enter for {}): ${COLORS.reset}`);
         if (functionName) {
           await invokeLambda(functionName, payload || "{}");
         }
@@ -332,10 +384,17 @@ export function buildAvailableActions(permissionResults) {
       description: "Create or update an SSM parameter value",
       service: "SSM",
       dangerous: true,
-      handler: async () => {
-        const paramName = await promptUser("Enter parameter name: ");
-        const value = await promptUser("Enter parameter value: ");
-        const paramType = await promptUser("Enter type (String/SecureString/StringList) [default: String]: ");
+      handler: async (rl) => {
+        // First list existing parameters
+        try {
+          await listSSMParameters();
+        } catch (error) {
+          logWarning("Could not list parameters, but you can still create a new one");
+        }
+        logSeparator();
+        const paramName = await askQuestion(rl, `${COLORS.cyan}Enter parameter name: ${COLORS.reset}`);
+        const value = await askQuestion(rl, `${COLORS.cyan}Enter parameter value: ${COLORS.reset}`);
+        const paramType = await askQuestion(rl, `${COLORS.cyan}Enter type (String/SecureString/StringList) [default: String]: ${COLORS.reset}`);
         if (paramName && value) {
           await createSSMParameter(paramName, value, paramType || "String");
         }
@@ -425,7 +484,7 @@ export async function runInteractiveMenu(permissionResults) {
       logInfo(`Executing: ${selectedAction.name}`);
       logSeparator();
 
-      await selectedAction.handler();
+      await selectedAction.handler(rl);
 
       logSeparator();
       logSuccess(`${selectedAction.name} completed successfully!`);
