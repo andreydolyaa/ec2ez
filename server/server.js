@@ -12,6 +12,7 @@ import * as permissions from '../src/permissions.js';
 import * as s3discovery from '../src/s3discovery.js';
 import { SessionSummary } from '../src/summary.js';
 import { CONFIG } from '../src/config.js';
+import { extractSSRFParam } from '../src/utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,13 +64,10 @@ app.post('/api/start', async (req, res) => {
       permissions: null,
     };
 
-    // Update config with proxy URL param
-    const urlObj = new URL(proxyUrl);
-    const params = new URLSearchParams(urlObj.search);
-    const paramName = Array.from(params.keys())[0];
-    if (paramName) {
-      CONFIG.ssrf.paramName = paramName;
-    }
+    // Auto-detect SSRF parameter name (same as CLI)
+    const paramName = extractSSRFParam(proxyUrl);
+    CONFIG.ssrf.paramName = paramName;
+    emitLog('info', `Using SSRF parameter: ${paramName}`);
 
     io.emit('sessionUpdate', { proxyUrl });
 
