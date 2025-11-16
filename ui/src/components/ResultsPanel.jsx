@@ -28,6 +28,44 @@ export default function ResultsPanel({ sessionData, isRunning }) {
     }
   }, [sessionData.s3Buckets]);
 
+  // Auto-fetch data when permissions become available
+  useEffect(() => {
+    if (!sessionData.permissions) return;
+
+    const perms = sessionData.permissions.allPermissions || [];
+    const hasPermission = (perm) => perms.some(p => p === perm || p === perm.split(':')[0] + ':*' || p === '*');
+
+    // Auto-fetch IAM users
+    if (hasPermission('iam:ListUsers') && data.iamUsers.length === 0 && !loading.iamUsers) {
+      loadData('iamUsers', '/api/iam/users', 'users');
+    }
+
+    // Auto-fetch IAM roles
+    if (hasPermission('iam:ListRoles') && data.iamRoles.length === 0 && !loading.iamRoles) {
+      loadData('iamRoles', '/api/iam/roles', 'roles');
+    }
+
+    // Auto-fetch Secrets Manager
+    if (hasPermission('secretsmanager:ListSecrets') && data.secrets.length === 0 && !loading.secrets) {
+      loadData('secrets', '/api/secrets/list', 'secrets');
+    }
+
+    // Auto-fetch SSM Parameters
+    if (hasPermission('ssm:DescribeParameters') && data.ssmParams.length === 0 && !loading.ssmParams) {
+      loadData('ssmParams', '/api/ssm/parameters', 'parameters');
+    }
+
+    // Auto-fetch Lambda Functions
+    if (hasPermission('lambda:ListFunctions') && data.lambdaFunctions.length === 0 && !loading.lambdaFunctions) {
+      loadData('lambdaFunctions', '/api/lambda/functions', 'functions');
+    }
+
+    // Auto-fetch EC2 Instances
+    if (hasPermission('ec2:DescribeInstances') && data.ec2Instances.length === 0 && !loading.ec2Instances) {
+      loadData('ec2Instances', '/api/ec2/instances', 'instances');
+    }
+  }, [sessionData.permissions, data, loading]);
+
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
@@ -211,18 +249,78 @@ export default function ResultsPanel({ sessionData, isRunning }) {
           )}
 
           {/* Metadata Section */}
-          {sessionData.metadata > 0 && (
+          {sessionData.metadata > 0 && sessionData.metadataDetails && (
             <Section
               title="IMDS Metadata"
               badge={<span className="badge badge-info">{sessionData.metadata} entries</span>}
               expanded={expandedSection === 'metadata'}
               onToggle={() => toggleSection('metadata')}
             >
-              <div className="metadata-info">
-                <p className="text-muted">Discovered {sessionData.metadata} metadata entries from EC2 IMDS</p>
-                <p className="text-muted" style={{ fontSize: '11px', marginTop: '8px' }}>
-                  Includes: instance-id, instance-type, placement, availability-zone, security-groups, network interfaces, IAM info, tags, user-data, etc.
+              <div className="metadata-display">
+                <p className="text-muted" style={{ marginBottom: '12px' }}>
+                  All metadata extracted from EC2 Instance Metadata Service (IMDSv2)
                 </p>
+                <div className="metadata-list">
+                  {Object.entries(sessionData.metadataDetails).map(([path, value], idx) => (
+                    <div key={idx} className="metadata-entry">
+                      <div className="metadata-path"><code>{path}</code></div>
+                      <div className="metadata-value">
+                        {value.length > 100 ? (
+                          <>
+                            <pre className="metadata-value-short">{value.substring(0, 100)}...</pre>
+                            <button className="btn-link" onClick={() => setModalData({ title: path, content: value })}>
+                              View Full Value
+                            </button>
+                          </>
+                        ) : (
+                          <pre className="metadata-value-short">{value}</pre>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Section>
+          )}
+
+          {/* Secrets Found in Metadata */}
+          {sessionData.metadataSecrets && sessionData.metadataSecrets.length > 0 && (
+            <Section
+              title="Secrets Found in Metadata"
+              badge={<span className="badge badge-danger">{sessionData.metadataSecrets.length} secrets</span>}
+              expanded={expandedSection === 'metadataSecrets'}
+              onToggle={() => toggleSection('metadataSecrets')}
+            >
+              <div className="secrets-display">
+                <p className="text-danger" style={{ marginBottom: '12px', fontWeight: '600' }}>
+                  ⚠ Potential credentials and secrets detected in IMDS metadata
+                </p>
+                {sessionData.metadataSecrets.map((secret, idx) => (
+                  <div key={idx} className="secret-entry">
+                    <div className="secret-header">
+                      <code className="secret-path">{secret.path}</code>
+                      <div className="secret-types">
+                        {secret.types.map((type, i) => (
+                          <span key={i} className="badge badge-danger" style={{ marginLeft: '4px', fontSize: '10px' }}>
+                            {type}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="secret-value">
+                      {secret.value.length > 150 ? (
+                        <>
+                          <pre className="secret-value-short">{secret.value.substring(0, 150)}...</pre>
+                          <button className="btn-link" onClick={() => setModalData({ title: `${secret.path} - ${secret.types.join(', ')}`, content: secret.value })}>
+                            View Full Value
+                          </button>
+                        </>
+                      ) : (
+                        <pre className="secret-value-short">{secret.value}</pre>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </Section>
           )}
@@ -321,10 +419,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             expanded={expandedSection === 'secrets'}
             onToggle={() => toggleSection('secrets')}
           >
-            {data.secrets.length === 0 ? (
-              <button className="btn-primary btn-sm" onClick={() => loadData('secrets', '/api/secrets/list', 'secrets')}>
-                List Secrets
-              </button>
+            {loading.secrets ? (
+              <div className="loading"><span className="spinner"></span> Loading secrets...</div>
+            ) : data.secrets.length === 0 ? (
+              <p className="text-muted">No secrets found</p>
             ) : (
               <ul className="resource-list">
                 {data.secrets.map((secret, idx) => (
@@ -346,19 +444,16 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             expanded={expandedSection === 'ssm'}
             onToggle={() => toggleSection('ssm')}
           >
-            {data.ssmParams.length === 0 ? (
-              <div className="action-buttons">
-                <button className="btn-primary btn-sm" onClick={() => loadData('ssmParams', '/api/ssm/parameters', 'parameters')}>
-                  List Parameters
-                </button>
-                <button className="btn-danger btn-sm" onClick={createSSMParameter}>Create Parameter</button>
-              </div>
+            {loading.ssmParams ? (
+              <div className="loading"><span className="spinner"></span> Loading parameters...</div>
+            ) : data.ssmParams.length === 0 ? (
+              <>
+                <p className="text-muted">No SSM parameters found</p>
+                <button className="btn-danger btn-sm" style={{ marginTop: '8px' }} onClick={createSSMParameter}>Create Parameter</button>
+              </>
             ) : (
               <>
                 <div className="action-buttons">
-                  <button className="btn-primary btn-sm" onClick={() => loadData('ssmParams', '/api/ssm/parameters', 'parameters')}>
-                    Refresh
-                  </button>
                   <button className="btn-danger btn-sm" onClick={createSSMParameter}>Create Parameter</button>
                 </div>
                 <ul className="resource-list">
@@ -382,10 +477,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             expanded={expandedSection === 'lambda'}
             onToggle={() => toggleSection('lambda')}
           >
-            {data.lambdaFunctions.length === 0 ? (
-              <button className="btn-primary btn-sm" onClick={() => loadData('lambdaFunctions', '/api/lambda/functions', 'functions')}>
-                List Functions
-              </button>
+            {loading.lambdaFunctions ? (
+              <div className="loading"><span className="spinner"></span> Loading functions...</div>
+            ) : data.lambdaFunctions.length === 0 ? (
+              <p className="text-muted">No Lambda functions found</p>
             ) : (
               <ul className="resource-list">
                 {data.lambdaFunctions.map((fn, idx) => (
@@ -407,10 +502,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             expanded={expandedSection === 'iamUsers'}
             onToggle={() => toggleSection('iamUsers')}
           >
-            {data.iamUsers.length === 0 ? (
-              <button className="btn-primary btn-sm" onClick={() => loadData('iamUsers', '/api/iam/users', 'users')}>
-                List IAM Users
-              </button>
+            {loading.iamUsers ? (
+              <div className="loading"><span className="spinner"></span> Loading IAM users...</div>
+            ) : data.iamUsers.length === 0 ? (
+              <p className="text-muted">No IAM users found</p>
             ) : (
               <ul className="resource-list">
                 {data.iamUsers.map((user, idx) => (
@@ -429,10 +524,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             expanded={expandedSection === 'iamRoles'}
             onToggle={() => toggleSection('iamRoles')}
           >
-            {data.iamRoles.length === 0 ? (
-              <button className="btn-primary btn-sm" onClick={() => loadData('iamRoles', '/api/iam/roles', 'roles')}>
-                List All IAM Roles
-              </button>
+            {loading.iamRoles ? (
+              <div className="loading"><span className="spinner"></span> Loading IAM roles...</div>
+            ) : data.iamRoles.length === 0 ? (
+              <p className="text-muted">No IAM roles found</p>
             ) : (
               <ul className="resource-list">
                 {data.iamRoles.map((role, idx) => (
@@ -451,14 +546,14 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             expanded={expandedSection === 'ec2'}
             onToggle={() => toggleSection('ec2')}
           >
-            {data.ec2Instances.length === 0 ? (
-              <button className="btn-primary btn-sm" onClick={() => loadData('ec2Instances', '/api/ec2/instances', 'instances')}>
-                List EC2 Instances
-              </button>
+            {loading.ec2Instances ? (
+              <div className="loading"><span className="spinner"></span> Loading EC2 instances...</div>
+            ) : data.ec2Instances.length === 0 ? (
+              <p className="text-muted">No EC2 instances found</p>
             ) : (
               <ul className="resource-list">
                 {data.ec2Instances.map((instance, idx) => (
-                  <li key={idx}><code>{instance}</code></li>
+                  <li key={idx}><code>{typeof instance === 'string' ? instance : `${instance.InstanceId} - ${instance.State} (${instance.InstanceType})`}</code></li>
                 ))}
               </ul>
             )}
