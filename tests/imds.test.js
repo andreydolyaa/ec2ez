@@ -134,7 +134,7 @@ describe("imds.js", () => {
 
       expect(token).toBe(testToken);
       expect(axiosPutSpy).toHaveBeenCalledWith(
-        expect.stringContaining(CONFIG.imdsv2.endpoints.token),
+        expect.stringContaining(testProxyUrl),
         null,
         expect.objectContaining({
           headers: {
@@ -165,7 +165,7 @@ describe("imds.js", () => {
 
       expect(result).toBe(roleData);
       expect(axiosGetSpy).toHaveBeenCalledWith(
-        expect.stringContaining(CONFIG.imdsv2.endpoints.iamMetadata),
+        expect.stringContaining(testProxyUrl),
         expect.objectContaining({
           headers: {
             [CONFIG.imdsv2.headers.tokenRequest]: testToken,
@@ -195,7 +195,7 @@ describe("imds.js", () => {
 
       expect(result).toEqual(["role1", "role2", "role3"]);
       expect(axiosGetSpy).toHaveBeenCalledWith(
-        expect.stringContaining(CONFIG.imdsv2.endpoints.iamMetadata),
+        expect.stringContaining(testProxyUrl),
         expect.objectContaining({
           headers: {
             [CONFIG.imdsv2.headers.tokenRequest]: testToken,
@@ -327,7 +327,7 @@ describe("imds.js", () => {
 
       expect(result).toEqual(iamInfo);
       expect(axiosGetSpy).toHaveBeenCalledWith(
-        expect.stringContaining("/latest/meta-data/iam/info"),
+        expect.stringContaining(testProxyUrl),
         expect.objectContaining({
           headers: {
             [CONFIG.imdsv2.headers.tokenRequest]: testToken,

