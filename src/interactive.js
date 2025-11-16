@@ -209,9 +209,9 @@ export function buildAvailableActions(permissionResults) {
     });
   }
 
-  // Bulk extraction requires BOTH secrets and SSM permissions
+  // Bulk extraction works with EITHER secrets OR SSM permissions (or both)
   if (
-    permissions.some((p) => matchesPermission(p, "secretsmanager:GetSecretValue")) &&
+    permissions.some((p) => matchesPermission(p, "secretsmanager:GetSecretValue")) ||
     permissions.some((p) => matchesPermission(p, "ssm:GetParameter"))
   ) {
     actions.push({
