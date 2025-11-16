@@ -456,6 +456,44 @@ app.post('/api/cloudwatch/scan', async (req, res) => {
   }
 });
 
+// Shell command execution
+app.post('/api/shell/exec', async (req, res) => {
+  try {
+    const { command } = req.body;
+    console.log(`[API] POST /api/shell/exec - Executing command: ${command}`);
+
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+
+    const { stdout, stderr } = await execAsync(command);
+    console.log(`[API] Command executed successfully`);
+
+    res.json({
+      output: stdout || stderr,
+      stdout,
+      stderr
+    });
+  } catch (error) {
+    console.error(`[API ERROR] Shell command failed: ${error.message}`);
+    res.status(500).json({ error: error.message, output: error.stdout || error.stderr });
+  }
+});
+
+// Bulk secret extraction
+app.post('/api/bulk/extract-secrets', async (req, res) => {
+  try {
+    console.log('[API] POST /api/bulk/extract-secrets - Starting bulk extraction');
+    const { extractAllSecrets } = await import('../src/aws.js');
+    const summary = await extractAllSecrets();
+    console.log(`[API] Bulk extraction completed`);
+    res.json({ summary });
+  } catch (error) {
+    console.error(`[API ERROR] Bulk extraction failed: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get session summary
 app.get('/api/summary', (req, res) => {
   res.json({
