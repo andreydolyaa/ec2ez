@@ -124,3 +124,11 @@
   color: var(--text-tertiary);
   font-size: 12px;
 }
+
+.load-more-section {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+}

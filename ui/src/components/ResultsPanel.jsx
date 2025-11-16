@@ -15,11 +15,13 @@ export default function ResultsPanel({ sessionData, isRunning }) {
     logGroups: [],
   });
   const [loading, setLoading] = useState({});
+  const [loadedSections, setLoadedSections] = useState(new Set());
 
   // Auto-update S3 buckets when sessionData changes
   useEffect(() => {
     if (sessionData.s3Buckets && sessionData.s3Buckets.length > 0) {
       setData(prev => ({ ...prev, s3Buckets: sessionData.s3Buckets }));
+      setLoadedSections(prev => new Set([...prev, 's3Buckets']));
     }
   }, [sessionData.s3Buckets]);
 
@@ -29,6 +31,7 @@ export default function ResultsPanel({ sessionData, isRunning }) {
 
   const loadData = async (type, endpoint, dataKey) => {
     setLoading(prev => ({ ...prev, [type]: true }));
+    setLoadedSections(prev => new Set([...prev, type]));
     try {
       const res = await axios.get(endpoint);
       const result = res.data[dataKey];
@@ -110,6 +113,7 @@ export default function ResultsPanel({ sessionData, isRunning }) {
           )}
 
           {/* S3 Buckets */}
+          {loadedSections.has('s3Buckets') && (
           <Section
             title="S3 Buckets"
             badge={data.s3Buckets.length > 0 && <span className="badge badge-info">{data.s3Buckets.length}</span>}
@@ -126,7 +130,7 @@ export default function ResultsPanel({ sessionData, isRunning }) {
             ) : data.s3Buckets.length > 0 ? (
               <ul className="resource-list">
                 {data.s3Buckets.map((bucket, idx) => (
-                  <li key={idx}><code>{bucket}</code></li>
+                  <li key={idx}><code>{typeof bucket === 'string' ? bucket : bucket.name || JSON.stringify(bucket)}</code></li>
                 ))}
               </ul>
             ) : (
@@ -135,8 +139,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </button>
             )}
           </Section>
+          )}
 
           {/* Secrets Manager */}
+          {loadedSections.has('secrets') && (
           <Section
             title="Secrets Manager"
             badge={data.secrets.length > 0 && <span className="badge badge-danger">{data.secrets.length}</span>}
@@ -162,8 +168,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </button>
             )}
           </Section>
+          )}
 
           {/* SSM Parameters */}
+          {loadedSections.has('ssmParams') && (
           <Section
             title="SSM Parameters"
             badge={data.ssmParams.length > 0 && <span className="badge badge-warning">{data.ssmParams.length}</span>}
@@ -189,8 +197,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </button>
             )}
           </Section>
+          )}
 
           {/* IAM Users */}
+          {loadedSections.has('iamUsers') && (
           <Section
             title="IAM Users"
             badge={data.iamUsers.length > 0 && <span className="badge badge-info">{data.iamUsers.length}</span>}
@@ -216,8 +226,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </button>
             )}
           </Section>
+          )}
 
           {/* IAM Roles (from AWS, not IMDS) */}
+          {loadedSections.has('iamRoles') && (
           <Section
             title="IAM Roles (AWS)"
             badge={data.iamRoles.length > 0 && <span className="badge badge-info">{data.iamRoles.length}</span>}
@@ -243,8 +255,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </button>
             )}
           </Section>
+          )}
 
           {/* Lambda Functions */}
+          {loadedSections.has('lambdaFunctions') && (
           <Section
             title="Lambda Functions"
             badge={data.lambdaFunctions.length > 0 && <span className="badge badge-info">{data.lambdaFunctions.length}</span>}
@@ -270,8 +284,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </button>
             )}
           </Section>
+          )}
 
           {/* EC2 Instances */}
+          {loadedSections.has('ec2Instances') && (
           <Section
             title="EC2 Instances"
             badge={data.ec2Instances.length > 0 && <span className="badge badge-info">{data.ec2Instances.length}</span>}
@@ -297,8 +313,10 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </button>
             )}
           </Section>
+          )}
 
           {/* CloudWatch Log Groups */}
+          {loadedSections.has('logGroups') && (
           <Section
             title="CloudWatch Logs"
             badge={data.logGroups.length > 0 && <span className="badge badge-info">{data.logGroups.length}</span>}
@@ -324,6 +342,38 @@ export default function ResultsPanel({ sessionData, isRunning }) {
               </button>
             )}
           </Section>
+          )}
+
+          {/* Load More Data Section */}
+          <div className="load-more-section">
+            <h4 style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Load More Data</h4>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {!loadedSections.has('s3Buckets') && (
+                <button className="btn-primary btn-sm" onClick={() => loadData('s3Buckets', '/api/s3/buckets', 'buckets')}>S3 Buckets</button>
+              )}
+              {!loadedSections.has('secrets') && (
+                <button className="btn-primary btn-sm" onClick={() => loadData('secrets', '/api/secrets/list', 'secrets')}>Secrets</button>
+              )}
+              {!loadedSections.has('ssmParams') && (
+                <button className="btn-primary btn-sm" onClick={() => loadData('ssmParams', '/api/ssm/parameters', 'parameters')}>SSM Parameters</button>
+              )}
+              {!loadedSections.has('iamUsers') && (
+                <button className="btn-primary btn-sm" onClick={() => loadData('iamUsers', '/api/iam/users', 'users')}>IAM Users</button>
+              )}
+              {!loadedSections.has('iamRoles') && (
+                <button className="btn-primary btn-sm" onClick={() => loadData('iamRoles', '/api/iam/roles', 'roles')}>IAM Roles</button>
+              )}
+              {!loadedSections.has('lambdaFunctions') && (
+                <button className="btn-primary btn-sm" onClick={() => loadData('lambdaFunctions', '/api/lambda/functions', 'functions')}>Lambda Functions</button>
+              )}
+              {!loadedSections.has('ec2Instances') && (
+                <button className="btn-primary btn-sm" onClick={() => loadData('ec2Instances', '/api/ec2/instances', 'instances')}>EC2 Instances</button>
+              )}
+              {!loadedSections.has('logGroups') && (
+                <button className="btn-primary btn-sm" onClick={() => loadData('logGroups', '/api/cloudwatch/log-groups', 'logGroups')}>CloudWatch Logs</button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
