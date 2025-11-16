@@ -383,7 +383,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3006;
 httpServer.listen(PORT, () => {
   console.log(`EC2EZ Server running on http://localhost:${PORT}`);
 });

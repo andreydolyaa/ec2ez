@@ -1,32 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import axios from 'axios';
-import Layout from './components/Layout';
-import Start from './sections/Start';
-import IMDS from './sections/IMDS';
-import S3 from './sections/S3';
-import Secrets from './sections/Secrets';
-import SSM from './sections/SSM';
-import IAM from './sections/IAM';
-import Lambda from './sections/Lambda';
-import EC2 from './sections/EC2';
-import CloudWatch from './sections/CloudWatch';
-import Permissions from './sections/Permissions';
-import Logs from './sections/Logs';
-import Summary from './sections/Summary';
+import Terminal from './components/Terminal';
+import ResultsPanel from './components/ResultsPanel';
+import './App.css';
 import './styles/theme.css';
 
 const API_URL = '/api';
 
 export default function App() {
-  const [currentSection, setCurrentSection] = useState('start');
-  const [sessionData, setSessionData] = useState({});
-  const [logs, setLogs] = useState([]);
+  const [proxyUrl, setProxyUrl] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [sessionData, setSessionData] = useState({
+    roles: [],
+    permissions: null,
+    accountId: null,
+    region: null,
+    token: null,
+  });
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    // Initialize WebSocket connection
     const newSocket = io();
     setSocket(newSocket);
 
@@ -45,64 +40,91 @@ export default function App() {
     return () => newSocket.close();
   }, []);
 
-  const handleStart = async (proxyUrl) => {
+  const handleStart = async (e) => {
+    e.preventDefault();
+    if (!proxyUrl || isRunning) return;
+
     setIsRunning(true);
     setLogs([]);
-    setSessionData({ proxyUrl });
-    setCurrentSection('logs');
+    setSessionData({
+      roles: [],
+      permissions: null,
+      accountId: null,
+      region: null,
+      token: null,
+      proxyUrl,
+    });
 
     try {
       await axios.post(`${API_URL}/start`, { proxyUrl });
     } catch (error) {
-      console.error('Error starting exploitation:', error);
+      console.error('Error:', error);
       setIsRunning(false);
     }
   };
 
-  const renderSection = () => {
-    const sectionProps = {
-      sessionData,
-      logs,
-      isRunning,
-    };
-
-    switch (currentSection) {
-      case 'start':
-        return <Start onStart={handleStart} isRunning={isRunning} />;
-      case 'imds':
-        return <IMDS {...sectionProps} />;
-      case 's3':
-        return <S3 {...sectionProps} />;
-      case 'secrets':
-        return <Secrets {...sectionProps} />;
-      case 'ssm':
-        return <SSM {...sectionProps} />;
-      case 'iam':
-        return <IAM {...sectionProps} />;
-      case 'lambda':
-        return <Lambda {...sectionProps} />;
-      case 'ec2':
-        return <EC2 {...sectionProps} />;
-      case 'cloudwatch':
-        return <CloudWatch {...sectionProps} />;
-      case 'permissions':
-        return <Permissions {...sectionProps} />;
-      case 'logs':
-        return <Logs logs={logs} />;
-      case 'summary':
-        return <Summary {...sectionProps} />;
-      default:
-        return <Start onStart={handleStart} isRunning={isRunning} />;
-    }
-  };
-
   return (
-    <Layout
-      currentSection={currentSection}
-      onSectionChange={setCurrentSection}
-      sessionData={sessionData}
-    >
-      {renderSection()}
-    </Layout>
+    <div className="app">
+      <header className="app-header">
+        <div className="header-content">
+          <div>
+            <h1>EC2EZ</h1>
+            <p className="text-muted">AWS IMDSv2 Exploitation Tool</p>
+          </div>
+          {sessionData.accountId && (
+            <div className="header-info">
+              <div className="info-item">
+                <span className="label">Account</span>
+                <code>{sessionData.accountId}</code>
+              </div>
+              <div className="info-item">
+                <span className="label">Region</span>
+                <code>{sessionData.region}</code>
+              </div>
+              {sessionData.roles?.length > 0 && (
+                <div className="info-item">
+                  <span className="label">Roles</span>
+                  <span className="badge badge-success">{sessionData.roles.length}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
+
+      <div className="app-content">
+        <div className="main-panel">
+          <form onSubmit={handleStart} className="input-form">
+            <input
+              type="text"
+              value={proxyUrl}
+              onChange={(e) => setProxyUrl(e.target.value)}
+              placeholder="Enter SSRF endpoint URL (e.g., http://target.com/proxy?url=)"
+              disabled={isRunning}
+              className="url-input"
+            />
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={!proxyUrl || isRunning}
+            >
+              {isRunning ? (
+                <>
+                  <span className="spinner"></span> Running
+                </>
+              ) : (
+                'Start Exploitation'
+              )}
+            </button>
+          </form>
+
+          <Terminal logs={logs} />
+        </div>
+
+        <div className="side-panel">
+          <ResultsPanel sessionData={sessionData} isRunning={isRunning} />
+        </div>
+      </div>
+    </div>
   );
 }
