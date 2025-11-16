@@ -456,3 +456,245 @@ export async function createSSMParameter(parameterName, value, paramType = "Stri
     throw error;
   }
 }
+
+export async function extractAllSecrets() {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0] + '_' +
+                     new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
+    const filename = `secrets_extracted_${timestamp}.txt`;
+
+    let output = "";
+    const findings = {
+      awsAccessKeys: 0,
+      awsSecretKeys: 0,
+      privateKeys: 0,
+      passwords: 0,
+      apiTokens: 0,
+      urls: 0,
+    };
+
+    // Header
+    output += "═══════════════════════════════════════════════════════════════\n";
+    output += "         EC2EZ - Bulk Secret & Parameter Extraction\n";
+    output += "═══════════════════════════════════════════════════════════════\n";
+    output += `Extraction Date: ${new Date().toISOString()}\n`;
+
+    // Get AWS account info
+    try {
+      const identity = await executeAWSCommand("aws sts get-caller-identity --output json");
+      const identityData = JSON.parse(identity);
+      output += `AWS Account: ${identityData.Account}\n`;
+      output += `Role/User: ${identityData.Arn}\n`;
+    } catch (error) {
+      output += `AWS Account: Unable to retrieve\n`;
+    }
+
+    output += "═══════════════════════════════════════════════════════════════\n\n";
+
+    // Extract Secrets Manager secrets
+    output += "📦 SECRETS MANAGER SECRETS\n";
+    output += "───────────────────────────────────────────────────────────────\n";
+
+    try {
+      logInfo("Extracting Secrets Manager secrets...");
+      const secretsList = await executeAWSCommand("aws secretsmanager list-secrets --output json");
+      const secrets = JSON.parse(secretsList);
+
+      if (secrets.SecretList && secrets.SecretList.length > 0) {
+        logInfo(`Found ${secrets.SecretList.length} secret(s), downloading values...`);
+
+        for (const secret of secrets.SecretList) {
+          try {
+            const secretValue = await executeAWSCommand(
+              `aws secretsmanager get-secret-value --secret-id "${secret.Name}" --output json`
+            );
+            const secretData = JSON.parse(secretValue);
+
+            output += `\nSecret: ${secret.Name}\n`;
+            output += `ARN: ${secret.ARN}\n`;
+            if (secret.Description) {
+              output += `Description: ${secret.Description}\n`;
+            }
+
+            const value = secretData.SecretString || secretData.SecretBinary || "(binary data)";
+            output += `Value:\n${value}\n`;
+
+            // Scan for patterns
+            const patterns = scanForCredentials(secret.Name + " " + value);
+            findings.awsAccessKeys += patterns.awsAccessKeys;
+            findings.awsSecretKeys += patterns.awsSecretKeys;
+            findings.privateKeys += patterns.privateKeys;
+            findings.passwords += patterns.passwords;
+            findings.apiTokens += patterns.apiTokens;
+            findings.urls += patterns.urls;
+
+            if (patterns.detected.length > 0) {
+              output += `🚨 DETECTED: ${patterns.detected.join(", ")}\n`;
+            }
+
+            output += "───────────────────────────────────────────────────────────────\n";
+
+            log(`  ✓ ${secret.Name}`, null, "green");
+          } catch (error) {
+            output += `\nSecret: ${secret.Name}\n`;
+            output += `Error: ${error.message}\n`;
+            output += "───────────────────────────────────────────────────────────────\n";
+            log(`  ✗ ${secret.Name} (access denied)`, null, "dim");
+          }
+        }
+
+        logSuccess(`Extracted ${secrets.SecretList.length} secret(s)`);
+      } else {
+        output += "No secrets found\n\n";
+        logInfo("No Secrets Manager secrets found");
+      }
+    } catch (error) {
+      output += `Error listing secrets: ${error.message}\n\n`;
+      logWarning("Unable to list Secrets Manager secrets (permission denied or not available)");
+    }
+
+    // Extract SSM Parameters
+    output += "\n⚙️  SSM PARAMETERS\n";
+    output += "───────────────────────────────────────────────────────────────\n";
+
+    try {
+      logInfo("Extracting SSM parameters...");
+      const paramsList = await executeAWSCommand("aws ssm describe-parameters --output json");
+      const params = JSON.parse(paramsList);
+
+      if (params.Parameters && params.Parameters.length > 0) {
+        logInfo(`Found ${params.Parameters.length} parameter(s), downloading values...`);
+
+        for (const param of params.Parameters) {
+          try {
+            const paramValue = await executeAWSCommand(
+              `aws ssm get-parameter --name "${param.Name}" --with-decryption --output json`
+            );
+            const paramData = JSON.parse(paramValue);
+
+            output += `\nParameter: ${paramData.Parameter.Name}\n`;
+            output += `Type: ${paramData.Parameter.Type}\n`;
+            if (param.Description) {
+              output += `Description: ${param.Description}\n`;
+            }
+            output += `Value: ${paramData.Parameter.Value}\n`;
+
+            // Scan for patterns
+            const patterns = scanForCredentials(param.Name + " " + paramData.Parameter.Value);
+            findings.awsAccessKeys += patterns.awsAccessKeys;
+            findings.awsSecretKeys += patterns.awsSecretKeys;
+            findings.privateKeys += patterns.privateKeys;
+            findings.passwords += patterns.passwords;
+            findings.apiTokens += patterns.apiTokens;
+            findings.urls += patterns.urls;
+
+            if (patterns.detected.length > 0) {
+              output += `🚨 DETECTED: ${patterns.detected.join(", ")}\n`;
+            }
+
+            output += "───────────────────────────────────────────────────────────────\n";
+
+            log(`  ✓ ${param.Name}`, null, "green");
+          } catch (error) {
+            output += `\nParameter: ${param.Name}\n`;
+            output += `Error: ${error.message}\n`;
+            output += "───────────────────────────────────────────────────────────────\n";
+            log(`  ✗ ${param.Name} (access denied)`, null, "dim");
+          }
+        }
+
+        logSuccess(`Extracted ${params.Parameters.length} parameter(s)`);
+      } else {
+        output += "No parameters found\n\n";
+        logInfo("No SSM parameters found");
+      }
+    } catch (error) {
+      output += `Error listing parameters: ${error.message}\n\n`;
+      logWarning("Unable to list SSM parameters (permission denied or not available)");
+    }
+
+    // Summary
+    output += "\n═══════════════════════════════════════════════════════════════\n";
+    output += "                    FINDINGS SUMMARY\n";
+    output += "═══════════════════════════════════════════════════════════════\n";
+    output += `🔑 AWS Access Keys Found: ${findings.awsAccessKeys}\n`;
+    output += `🔐 AWS Secret Keys Found: ${findings.awsSecretKeys}\n`;
+    output += `🔒 Private Keys Found: ${findings.privateKeys}\n`;
+    output += `🔓 Password Fields: ${findings.passwords}\n`;
+    output += `🎫 API Token Fields: ${findings.apiTokens}\n`;
+    output += `🔗 URLs with Credentials: ${findings.urls}\n`;
+    output += "═══════════════════════════════════════════════════════════════\n";
+
+    // Write to file
+    fs.writeFileSync(filename, output);
+
+    logSuccess(`All secrets and parameters extracted to: ${filename}`);
+    logSeparator();
+    log("Findings Summary:", null, "bright");
+    log(`  🔑 AWS Access Keys: ${findings.awsAccessKeys}`, null, findings.awsAccessKeys > 0 ? "red" : "dim");
+    log(`  🔐 AWS Secret Keys: ${findings.awsSecretKeys}`, null, findings.awsSecretKeys > 0 ? "red" : "dim");
+    log(`  🔒 Private Keys: ${findings.privateKeys}`, null, findings.privateKeys > 0 ? "red" : "dim");
+    log(`  🔓 Passwords: ${findings.passwords}`, null, findings.passwords > 0 ? "yellow" : "dim");
+    log(`  🎫 API Tokens: ${findings.apiTokens}`, null, findings.apiTokens > 0 ? "yellow" : "dim");
+    log(`  🔗 URLs with Creds: ${findings.urls}`, null, findings.urls > 0 ? "yellow" : "dim");
+    logSeparator();
+
+    return { filename, findings };
+  } catch (error) {
+    logError("Failed to extract secrets");
+    log(error.message, null, "red");
+    throw error;
+  }
+}
+
+function scanForCredentials(text) {
+  const detected = [];
+  const findings = {
+    awsAccessKeys: 0,
+    awsSecretKeys: 0,
+    privateKeys: 0,
+    passwords: 0,
+    apiTokens: 0,
+    urls: 0,
+    detected: [],
+  };
+
+  // AWS Access Key pattern: AKIA[0-9A-Z]{16}
+  if (/AKIA[0-9A-Z]{16}/.test(text)) {
+    findings.awsAccessKeys++;
+    detected.push("AWS Access Key");
+  }
+
+  // AWS Secret Key pattern (40 chars base64-like)
+  if (/(?:^|[^A-Za-z0-9/+=])[A-Za-z0-9/+=]{40}(?:[^A-Za-z0-9/+=]|$)/.test(text)) {
+    findings.awsSecretKeys++;
+    detected.push("Potential AWS Secret Key");
+  }
+
+  // Private keys
+  if (/-----BEGIN.*PRIVATE KEY-----/.test(text)) {
+    findings.privateKeys++;
+    detected.push("Private Key");
+  }
+
+  // Password-related fields
+  if (/(password|passwd|pwd|secret)[:=]/i.test(text)) {
+    findings.passwords++;
+    detected.push("Password field");
+  }
+
+  // API tokens
+  if (/(api[_-]?key|apikey|token|bearer)[:=]/i.test(text)) {
+    findings.apiTokens++;
+    detected.push("API Token/Key");
+  }
+
+  // URLs with credentials (http://user:pass@host)
+  if (/https?:\/\/[^:]+:[^@]+@/.test(text)) {
+    findings.urls++;
+    detected.push("URL with credentials");
+  }
+
+  findings.detected = detected;
+  return findings;
+}

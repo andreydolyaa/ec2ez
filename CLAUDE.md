@@ -136,6 +136,20 @@ EC2EZ - Feature Tree
 │  │     ├─ Prompt for function name and payload
 │  │     └─ Display function response
 │  │
+│  ├─ Multi-Service Operations
+│  │  └─ Extract All Secrets & Parameters (requires: secretsmanager:GetSecretValue + ssm:GetParameter)
+│  │     ├─ Bulk download ALL Secrets Manager secrets
+│  │     ├─ Bulk download ALL SSM parameters (including SecureString)
+│  │     ├─ Automatic credential pattern detection:
+│  │     │  ├─ AWS Access Keys (AKIA...)
+│  │     │  ├─ AWS Secret Keys (40-char base64)
+│  │     │  ├─ Private Keys (-----BEGIN...PRIVATE KEY-----)
+│  │     │  ├─ Password fields (password=, passwd:, etc.)
+│  │     │  ├─ API tokens (api_key=, token:, bearer:, etc.)
+│  │     │  └─ URLs with credentials (http://user:pass@host)
+│  │     ├─ Save to timestamped file (secrets_extracted_YYYY-MM-DD_HH-MM-SS.txt)
+│  │     └─ Display findings summary with counts
+│  │
 │  └─ System Operations
 │     └─ Run Shell Command (always available)
 │        ├─ Execute arbitrary shell commands
@@ -192,6 +206,7 @@ The interactive menu dynamically constructs available actions based on **actual 
 | Read Secret Value | `secretsmanager:GetSecretValue` | SENSITIVE |
 | List Lambda Functions | `lambda:ListFunctions` | SAFE |
 | Invoke Lambda | `lambda:InvokeFunction` | SENSITIVE |
+| Extract All Secrets & Parameters | `secretsmanager:GetSecretValue` + `ssm:GetParameter` | SENSITIVE |
 | Run Shell Command | (none - always available) | SAFE |
 
 **Wildcard Matching:** The tool correctly handles wildcard permissions like `s3:*`, `ec2:*`, `s3:List*`, etc.

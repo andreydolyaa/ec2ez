@@ -27,6 +27,7 @@ import {
   listS3Objects,
   invokeLambda,
   createSSMParameter,
+  extractAllSecrets,
 } from "./aws.js";
 
 const execAsync = promisify(exec);
@@ -204,6 +205,23 @@ export function buildAvailableActions(permissionResults) {
         if (secretName) {
           await getSecretValue(secretName);
         }
+      },
+    });
+  }
+
+  // Bulk extraction requires BOTH secrets and SSM permissions
+  if (
+    permissions.some((p) => matchesPermission(p, "secretsmanager:GetSecretValue")) &&
+    permissions.some((p) => matchesPermission(p, "ssm:GetParameter"))
+  ) {
+    actions.push({
+      id: "15",
+      name: "Extract All Secrets & Parameters",
+      description: "Bulk download all secrets and SSM parameters, scan for credentials",
+      service: "Multi-Service",
+      dangerous: true,
+      handler: async (rl) => {
+        await extractAllSecrets();
       },
     });
   }
