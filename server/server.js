@@ -254,22 +254,36 @@ app.post('/api/start', async (req, res) => {
 app.get('/api/s3/buckets', async (req, res) => {
   try {
     console.log('[API] GET /api/s3/buckets - Listing S3 buckets');
-    const buckets = await aws.listS3Buckets();
+    const rawOutput = await aws.listS3Buckets();
+    // Parse raw CLI output: "2025-01-15 10:30:00 my-bucket-1"
+    const buckets = rawOutput ? rawOutput.split('\n').map(line => {
+      const parts = line.trim().split(/\s+/);
+      return parts.length >= 3 ? parts[2] : null;
+    }).filter(b => b) : [];
     console.log(`[API] Found ${buckets.length} S3 buckets`);
     res.json({ buckets });
   } catch (error) {
     console.error(`[API ERROR] Failed to list S3 buckets: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, buckets: [] });
   }
 });
 
 app.post('/api/s3/list-objects', async (req, res) => {
   try {
     const { bucket, prefix } = req.body;
-    const objects = await aws.listS3Objects(bucket, prefix);
+    console.log(`[API] POST /api/s3/list-objects - Listing objects in bucket: ${bucket} (prefix: ${prefix || 'none'})`);
+    const rawOutput = await aws.listS3Objects(bucket, prefix);
+    // Parse raw CLI output: "2025-01-15 10:30:00      12345 path/to/file.txt"
+    const objects = rawOutput ? rawOutput.split('\n').map(line => {
+      const parts = line.trim().split(/\s+/);
+      // Format: date time size key
+      return parts.length >= 4 ? parts.slice(3).join(' ') : null;
+    }).filter(o => o) : [];
+    console.log(`[API] Found ${objects.length} objects in bucket ${bucket}`);
     res.json({ objects });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(`[API ERROR] Failed to list S3 objects: ${error.message}`);
+    res.status(500).json({ error: error.message, objects: [] });
   }
 });
 
@@ -297,12 +311,15 @@ app.post('/api/s3/upload', async (req, res) => {
 app.get('/api/secrets/list', async (req, res) => {
   try {
     console.log('[API] GET /api/secrets/list - Listing Secrets Manager secrets');
-    const secrets = await aws.listSecrets();
+    const result = await aws.listSecrets();
+    // Extract SecretList array and map to just names
+    const secretObjects = result.SecretList || [];
+    const secrets = secretObjects.map(s => s.Name);
     console.log(`[API] Found ${secrets.length} secrets`);
     res.json({ secrets });
   } catch (error) {
     console.error(`[API ERROR] Failed to list secrets: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, secrets: [] });
   }
 });
 
@@ -320,12 +337,15 @@ app.post('/api/secrets/get', async (req, res) => {
 app.get('/api/ssm/parameters', async (req, res) => {
   try {
     console.log('[API] GET /api/ssm/parameters - Listing SSM parameters');
-    const parameters = await aws.listSSMParameters();
+    const result = await aws.listSSMParameters();
+    // Extract Parameters array and map to just names
+    const paramObjects = result.Parameters || [];
+    const parameters = paramObjects.map(p => p.Name);
     console.log(`[API] Found ${parameters.length} SSM parameters`);
     res.json({ parameters });
   } catch (error) {
     console.error(`[API ERROR] Failed to list SSM parameters: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, parameters: [] });
   }
 });
 
@@ -359,24 +379,30 @@ app.post('/api/ssm/put-parameter', async (req, res) => {
 app.get('/api/iam/users', async (req, res) => {
   try {
     console.log('[API] GET /api/iam/users - Listing IAM users');
-    const users = await aws.listIAMUsers();
+    const result = await aws.listIAMUsers();
+    // Extract Users array and map to just usernames
+    const userObjects = result.Users || [];
+    const users = userObjects.map(u => u.UserName);
     console.log(`[API] Found ${users.length} IAM users`);
     res.json({ users });
   } catch (error) {
     console.error(`[API ERROR] Failed to list IAM users: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, users: [] });
   }
 });
 
 app.get('/api/iam/roles', async (req, res) => {
   try {
     console.log('[API] GET /api/iam/roles - Listing IAM roles');
-    const roles = await aws.listIAMRoles();
+    const result = await aws.listIAMRoles();
+    // Extract Roles array and map to just role names
+    const roleObjects = result.Roles || [];
+    const roles = roleObjects.map(r => r.RoleName);
     console.log(`[API] Found ${roles.length} IAM roles`);
     res.json({ roles });
   } catch (error) {
     console.error(`[API ERROR] Failed to list IAM roles: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, roles: [] });
   }
 });
 
@@ -384,12 +410,15 @@ app.get('/api/iam/roles', async (req, res) => {
 app.get('/api/lambda/functions', async (req, res) => {
   try {
     console.log('[API] GET /api/lambda/functions - Listing Lambda functions');
-    const functions = await aws.listLambdaFunctions();
+    const result = await aws.listLambdaFunctions();
+    // Extract Functions array and map to just function names
+    const functionObjects = result.Functions || [];
+    const functions = functionObjects.map(f => f.FunctionName);
     console.log(`[API] Found ${functions.length} Lambda functions`);
     res.json({ functions });
   } catch (error) {
     console.error(`[API ERROR] Failed to list Lambda functions: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, functions: [] });
   }
 });
 
@@ -410,12 +439,25 @@ app.post('/api/lambda/invoke', async (req, res) => {
 app.get('/api/ec2/instances', async (req, res) => {
   try {
     console.log('[API] GET /api/ec2/instances - Listing EC2 instances');
-    const instances = await aws.listEC2Instances();
+    const rawOutput = await aws.listEC2Instances();
+    // Parse raw CLI output: "i-1234567890abcdef0    running    t3.micro    MyInstance"
+    const instances = rawOutput ? rawOutput.split('\n').map(line => {
+      const parts = line.trim().split(/\t/);
+      if (parts.length >= 3) {
+        return {
+          InstanceId: parts[0],
+          State: parts[1],
+          InstanceType: parts[2],
+          Name: parts[3] || 'N/A'
+        };
+      }
+      return null;
+    }).filter(i => i) : [];
     console.log(`[API] Found ${instances.length} EC2 instances`);
     res.json({ instances });
   } catch (error) {
     console.error(`[API ERROR] Failed to list EC2 instances: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, instances: [] });
   }
 });
 
