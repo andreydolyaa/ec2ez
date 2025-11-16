@@ -1,0 +1,123 @@
+.log-output {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.log-output-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.log-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.log-output-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.log-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--spacing-xl);
+  font-style: italic;
+}
+
+.log-entry {
+  margin-bottom: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  border-left: 3px solid var(--border-color);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.log-entry:hover {
+  background: var(--bg-hover);
+}
+
+.log-timestamp {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-right: var(--spacing-sm);
+}
+
+.log-message {
+  color: var(--text-primary);
+}
+
+.log-data {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  overflow-x: auto;
+}
+
+.log-success {
+  border-left-color: var(--accent-green);
+}
+
+.log-success .log-message {
+  color: var(--accent-green);
+}
+
+.log-error {
+  border-left-color: var(--accent-red);
+}
+
+.log-error .log-message {
+  color: var(--accent-red);
+}
+
+.log-warning {
+  border-left-color: var(--accent-yellow);
+}
+
+.log-warning .log-message {
+  color: var(--accent-yellow);
+}
+
+.log-info {
+  border-left-color: var(--accent-blue);
+}
+
+.log-info .log-message {
+  color: var(--accent-blue);
+}
+
+.log-danger {
+  border-left-color: var(--accent-purple);
+}
+
+.log-danger .log-message {
+  color: var(--accent-purple);
+}

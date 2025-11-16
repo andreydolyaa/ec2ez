@@ -52,6 +52,7 @@ ${COLORS.bright}ARGUMENTS:${COLORS.reset}
 
 ${COLORS.bright}OPTIONS:${COLORS.reset}
   ${COLORS.green}-h, --help${COLORS.reset}           Show this help message and exit
+  ${COLORS.green}--ui${COLORS.reset}                 Launch web UI interface (runs on http://localhost:3000)
 
 ${COLORS.bright}EXAMPLES:${COLORS.reset}
   ${COLORS.dim}# Example 1: Endpoint with 'url' parameter${COLORS.reset}
@@ -104,6 +105,30 @@ async function main() {
   if (arg === "-h" || arg === "--help") {
     displayHelp();
     process.exit(0);
+  }
+
+  if (arg === "--ui") {
+    // Launch UI mode
+    const { spawn } = await import('child_process');
+    const { fileURLToPath } = await import('url');
+    const { dirname, join } = await import('path');
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+
+    console.log(`${COLORS.cyan}${COLORS.bright}🚀 Starting EC2EZ UI Mode...${COLORS.reset}\n`);
+
+    const uiLauncher = spawn('node', ['ui-launcher.js'], {
+      cwd: __dirname,
+      stdio: 'inherit',
+      shell: true,
+    });
+
+    uiLauncher.on('exit', (code) => {
+      process.exit(code);
+    });
+
+    return;
   }
 
   const proxyUrl = arg;

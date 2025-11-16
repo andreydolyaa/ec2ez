@@ -2,3 +2,11 @@ node_modules
 coverage/
 .DS_Store
 
+# UI files
+ui/node_modules
+ui/dist
+server/node_modules
+
+# Build artifacts
+*.log
+.vite
