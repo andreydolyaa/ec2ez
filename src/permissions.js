@@ -30,6 +30,9 @@ export async function discoverPermissionsByTesting() {
     { permission: "secretsmanager:ListSecrets", command: "aws secretsmanager list-secrets --max-results 1 --output json" },
     { permission: "ssm:DescribeParameters", command: "aws ssm describe-parameters --max-results 1 --output json" },
     { permission: "lambda:ListFunctions", command: "aws lambda list-functions --max-items 1 --output json" },
+    { permission: "logs:DescribeLogGroups", command: "aws logs describe-log-groups --max-items 1 --output json" },
+    { permission: "logs:DescribeLogStreams", command: "aws logs describe-log-streams --max-items 1 --output json 2>&1 || true" },
+    { permission: "logs:GetLogEvents", command: "aws logs get-log-events --log-group-name test --log-stream-name test --limit 1 --output json 2>&1 || true" },
     { permission: "ec2:RunInstances", command: "aws ec2 run-instances --dry-run --image-id ami-12345678 --instance-type t2.micro 2>&1 || true" },
   ];
 

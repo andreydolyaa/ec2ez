@@ -87,10 +87,10 @@ export function extractSSRFParam(url) {
     const params = urlObj.searchParams;
 
     // If URL already has a query parameter, extract the first one
-    if (params.keys().next().value) {
-      const paramName = params.keys().next().value;
-      logInfo(`Auto-detected SSRF parameter: ${paramName}`);
-      return paramName;
+    const firstParam = params.keys().next().value;
+    if (firstParam) {
+      logInfo(`Auto-detected SSRF parameter: ${firstParam}`);
+      return firstParam;
     }
 
     // Otherwise, default to 'url'

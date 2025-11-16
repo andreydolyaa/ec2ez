@@ -31,6 +31,7 @@ Unauthorized access to computer systems is illegal. The authors assume no liabil
 - Comprehensive Permission Discovery: Enumerates IAM policies and identifies dangerous permissions
 - S3 Bucket Discovery: Extracts bucket names from IMDS metadata and tests access with each role
 - Pre-signed URL Generation: Automatically generates pre-signed URLs when direct access fails
+- CloudWatch Logs Extraction: Downloads and scans CloudWatch logs for accidentally logged secrets
 - Interactive Menu: Permission-based action menu for post-exploitation
 - Session Summary: Detailed report of all findings, credentials, and recommendations
 
@@ -46,6 +47,44 @@ Unauthorized access to computer systems is illegal. The authors assume no liabil
 git clone https://github.com/yourusername/ec2ez.git
 cd ec2ez
 npm install
+```
+
+## Testing
+
+The project includes a comprehensive test suite using Jest to ensure code quality and reliability.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+```
+
+### Test Coverage
+
+The test suite provides excellent coverage for core modules:
+
+- **config.js**: 100% coverage - Configuration and constants
+- **imds.js**: 96.77% coverage - IMDS interactions and credential extraction
+- **utils.js**: 84.84% coverage - Logging and helper functions
+- **summary.js**: 80.32% coverage - Session summary and reporting
+- **aws.js**: Integration tests for AWS CLI wrapper functions
+
+### Test Organization
+
+```
+tests/
+├── config.test.js    # Configuration tests
+├── utils.test.js     # Utility function tests
+├── imds.test.js      # IMDS interaction tests (with axios mocks)
+├── summary.test.js   # Session summary class tests
+└── aws.test.js       # AWS CLI wrapper tests
 ```
 
 ## Usage
@@ -117,13 +156,14 @@ The vulnerable endpoint should:
 3. IAM Role Enumeration: Discovers all available IAM roles
 4. Credential Extraction: Retrieves AWS credentials for each role
 5. IMDS Metadata Enumeration: Recursively explores all metadata paths
-6. Credential Validation: Tests credentials across multiple AWS regions
-7. Permission Discovery: Enumerates IAM policies and dangerous permissions
-8. PassRole Detection: Identifies privilege escalation vectors
-9. S3 Access Testing: Tests S3 access with each role
-10. Bucket Discovery: Tests bucket names found in IMDS metadata
-11. Interactive Menu: Provides permission-based actions
-12. Summary Report: Displays comprehensive findings
+6. **User Data Extraction**: Extracts and analyzes EC2 user data for secrets
+7. Credential Validation: Tests credentials across multiple AWS regions
+8. Permission Discovery: Enumerates IAM policies and dangerous permissions
+9. PassRole Detection: Identifies privilege escalation vectors
+10. S3 Access Testing: Tests S3 access with each role
+11. Bucket Discovery: Tests bucket names found in IMDS metadata
+12. Interactive Menu: Provides permission-based actions
+13. Summary Report: Displays comprehensive findings
 
 ## What Gets Extracted
 
@@ -136,10 +176,29 @@ The vulnerable endpoint should:
 ### IMDS Metadata
 - IAM role information
 - Instance identity document
-- User data
 - Instance tags
 - Network interfaces
 - Security groups
+
+### User Data & Secrets
+- **Automatic extraction** from IMDS
+- **Base64 decoding** if encoded
+- **Secret detection** with 10+ pattern types:
+  - AWS Access Keys (AKIA...)
+  - AWS Secret Keys
+  - Private SSH Keys
+  - Passwords
+  - API Tokens & Keys
+  - Database URLs (postgres://, mysql://, etc.)
+  - URLs with embedded credentials
+  - JWT Tokens
+  - GitHub/Slack tokens
+- **Cloud-init parsing**:
+  - Package lists
+  - Startup commands
+  - Environment variables
+  - Write files configuration
+- **Severity classification**: CRITICAL, HIGH, MEDIUM
 
 ### S3 Information
 - Bucket names from metadata
@@ -163,6 +222,7 @@ After credential extraction, the tool provides an interactive menu with actions 
 - Secrets Manager: List secrets
 - SSM Parameter Store: List parameters
 - Lambda: List functions
+- CloudWatch Logs: Extract and scan logs for secrets (automatically detects AWS keys, passwords, tokens, database URLs, etc.)
 
 Actions are automatically available based on the IAM permissions of the extracted credentials.
 
@@ -173,16 +233,26 @@ ec2ez/
 ├── ec2ez.js               # Main entry point
 ├── package.json           # Dependencies
 ├── README.md              # This file
-└── src/
-    ├── config.js          # Configuration and constants
-    ├── utils.js           # Logging utilities
-    ├── imds.js            # IMDSv2 interaction functions
-    ├── aws.js             # AWS CLI wrappers
-    ├── permissions.js     # Permission enumeration
-    ├── interactive.js     # Interactive menu system
-    ├── presigned.js       # Pre-signed URL discovery
-    ├── s3discovery.js     # S3 bucket discovery and testing
-    └── summary.js         # Session summary and reporting
+├── src/                   # Source code
+│   ├── config.js          # Configuration and constants
+│   ├── utils.js           # Logging utilities
+│   ├── imds.js            # IMDSv2 interaction functions
+│   ├── aws.js             # AWS CLI wrappers
+│   ├── permissions.js     # Permission enumeration
+│   ├── interactive.js     # Interactive menu system
+│   ├── presigned.js       # Pre-signed URL discovery
+│   ├── s3discovery.js     # S3 bucket discovery and testing
+│   ├── userdata.js        # User data extraction and secret scanning
+│   ├── cloudwatch.js      # CloudWatch logs extraction and analysis
+│   └── summary.js         # Session summary and reporting
+└── tests/                 # Test suite
+    ├── config.test.js     # Configuration tests
+    ├── utils.test.js      # Utility tests
+    ├── imds.test.js       # IMDS tests
+    ├── summary.test.js    # Summary tests
+    ├── userdata.test.js   # User data extraction tests
+    ├── cloudwatch.test.js # CloudWatch logs tests
+    └── aws.test.js        # AWS tests
 ```
 
 ## Configuration
