@@ -35,6 +35,167 @@ EC2EZ is an AWS IMDSv2 (Instance Metadata Service v2) exploitation tool designed
 - Provides interactive post-exploitation menu
 - Generates comprehensive session summary
 
+### Complete Feature Map
+
+```
+EC2EZ - Feature Tree
+│
+├─ 🔍 RECONNAISSANCE & DISCOVERY
+│  ├─ SSRF Vulnerability Testing
+│  │  └─ Auto-detect SSRF parameter name (url, target, etc.)
+│  │
+│  ├─ IMDSv2 Token Extraction
+│  │  └─ 6-hour TTL token via PUT request
+│  │
+│  ├─ IAM Role Enumeration
+│  │  ├─ List all roles on EC2 instance
+│  │  └─ Extract credentials for each role
+│  │
+│  ├─ IMDS Metadata Discovery
+│  │  ├─ Recursive metadata tree exploration
+│  │  ├─ Tree-structured display (files/folders)
+│  │  ├─ Pre-signed URL detection
+│  │  └─ S3 bucket reference extraction
+│  │
+│  └─ IAM Permission Analysis
+│     ├─ Parse managed policies (parallel fetching)
+│     ├─ Parse inline policies
+│     ├─ Identify dangerous permissions
+│     ├─ Check for PassRole capability
+│     └─ Group permissions by service
+│
+├─ 🔐 CREDENTIAL MANAGEMENT
+│  ├─ Multi-role credential extraction
+│  ├─ Auto-write to ~/.aws/credentials
+│  ├─ Multi-region validation
+│  └─ Expiration time tracking
+│
+├─ ☁️ AWS SERVICE OPERATIONS (Interactive Menu)
+│  │
+│  ├─ EC2 Operations
+│  │  ├─ Launch EC2 Instance (requires: ec2:RunInstances)
+│  │  │  ├─ Auto-detect first key pair
+│  │  │  ├─ Auto-detect first VPC
+│  │  │  ├─ Auto-detect first subnet
+│  │  │  └─ Auto-detect first security group
+│  │  │
+│  │  └─ List EC2 Instances (requires: ec2:DescribeInstances)
+│  │     └─ Show instance ID, state, type, and name
+│  │
+│  ├─ S3 Operations
+│  │  ├─ List S3 Buckets (requires: s3:ListAllMyBuckets)
+│  │  │  └─ Display all buckets in account
+│  │  │
+│  │  ├─ List S3 Bucket Objects (requires: s3:ListBucket)
+│  │  │  ├─ Prompt for bucket name
+│  │  │  ├─ Optional prefix filtering
+│  │  │  └─ Show object keys and sizes
+│  │  │
+│  │  ├─ Download S3 Object (requires: s3:GetObject)
+│  │  │  ├─ Prompt for bucket, key, local path
+│  │  │  └─ Download to local filesystem
+│  │  │
+│  │  └─ Upload S3 Object (requires: s3:PutObject)
+│  │     ├─ Prompt for local path, bucket, key
+│  │     └─ Upload from local filesystem
+│  │
+│  ├─ IAM Operations
+│  │  ├─ List IAM Users (requires: iam:ListUsers)
+│  │  │  └─ Display all IAM users in account
+│  │  │
+│  │  └─ List IAM Roles (requires: iam:ListRoles)
+│  │     └─ Display all IAM roles in account
+│  │
+│  ├─ SSM (Systems Manager) Operations
+│  │  ├─ List SSM Parameters (requires: ssm:DescribeParameters)
+│  │  │  └─ Display all parameter names
+│  │  │
+│  │  ├─ Read SSM Parameter Value (requires: ssm:GetParameter)
+│  │  │  ├─ Auto-list available parameters first
+│  │  │  ├─ Prompt for parameter name
+│  │  │  └─ Display decrypted value
+│  │  │
+│  │  └─ Create/Update SSM Parameter (requires: ssm:PutParameter)
+│  │     ├─ Prompt for name, value, type
+│  │     └─ Support String/SecureString/StringList
+│  │
+│  ├─ Secrets Manager Operations
+│  │  ├─ List Secrets (requires: secretsmanager:ListSecrets)
+│  │  │  └─ Display all secret names
+│  │  │
+│  │  └─ Read Secret Value (requires: secretsmanager:GetSecretValue)
+│  │     ├─ Auto-list available secrets first
+│  │     ├─ Prompt for secret name
+│  │     └─ Display decrypted secret
+│  │
+│  ├─ Lambda Operations
+│  │  ├─ List Lambda Functions (requires: lambda:ListFunctions)
+│  │  │  └─ Display all function names
+│  │  │
+│  │  └─ Invoke Lambda (requires: lambda:InvokeFunction)
+│  │     ├─ Prompt for function name and payload
+│  │     └─ Display function response
+│  │
+│  └─ System Operations
+│     └─ Run Shell Command (always available)
+│        ├─ Execute arbitrary shell commands
+│        ├─ Display stdout and stderr
+│        └─ Examples: ls, pwd, find, cat, etc.
+│
+├─ 🎯 AUTOMATED S3 TESTING
+│  ├─ Test S3 access for all discovered roles
+│  ├─ List buckets with each role's credentials
+│  ├─ List objects in each accessible bucket
+│  ├─ Test bucket names discovered from IMDS metadata
+│  └─ Display presign command examples
+│
+├─ 📊 REPORTING & ANALYSIS
+│  ├─ Session Summary
+│  │  ├─ IMDS findings (token, metadata count)
+│  │  ├─ All discovered roles with credentials
+│  │  ├─ Credential validation results
+│  │  ├─ Permission analysis
+│  │  ├─ Dangerous permissions highlighted
+│  │  └─ S3 access summary
+│  │
+│  └─ Real-time Logging
+│     ├─ Color-coded output (success/error/warning/info)
+│     ├─ Timestamp on all operations
+│     └─ Detailed operation progress
+│
+└─ 🔧 UTILITIES
+   ├─ Multi-region AWS credential validation
+   ├─ Parallel IAM policy fetching (4-6x faster)
+   ├─ Dynamic menu based on discovered permissions
+   ├─ Readline interface sharing (no double input bug)
+   └─ Auto-detect SSRF parameter from URL
+```
+
+### Permission-Based Menu System
+
+The interactive menu dynamically constructs available actions based on **actual discovered permissions**:
+
+| Menu Option | Required Permission(s) | Risk Level |
+|------------|----------------------|-----------|
+| Launch EC2 Instance | `ec2:RunInstances` | SAFE |
+| List EC2 Instances | `ec2:DescribeInstances` | SAFE |
+| List S3 Buckets | `s3:ListAllMyBuckets` | SAFE |
+| Download S3 Object | `s3:GetObject` | SAFE |
+| Upload S3 Object | `s3:PutObject` | SENSITIVE |
+| List S3 Bucket Objects | `s3:ListBucket` | SAFE |
+| List IAM Users | `iam:ListUsers` | SENSITIVE |
+| List IAM Roles | `iam:ListRoles` | SENSITIVE |
+| List SSM Parameters | `ssm:DescribeParameters` | SENSITIVE |
+| Read SSM Parameter | `ssm:GetParameter` | SENSITIVE |
+| Create/Update SSM Parameter | `ssm:PutParameter` | SENSITIVE |
+| List Secrets | `secretsmanager:ListSecrets` | SENSITIVE |
+| Read Secret Value | `secretsmanager:GetSecretValue` | SENSITIVE |
+| List Lambda Functions | `lambda:ListFunctions` | SAFE |
+| Invoke Lambda | `lambda:InvokeFunction` | SENSITIVE |
+| Run Shell Command | (none - always available) | SAFE |
+
+**Wildcard Matching:** The tool correctly handles wildcard permissions like `s3:*`, `ec2:*`, `s3:List*`, etc.
+
 ### Technology Stack
 - **Runtime:** Node.js 18+ (ES Modules)
 - **Dependencies:**
