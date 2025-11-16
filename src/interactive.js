@@ -51,7 +51,7 @@ function askQuestion(rl, question) {
   });
 }
 
-export function buildAvailableActions(permissionResults) {
+export async function buildAvailableActions(permissionResults) {
   const actions = [];
   const permissions = permissionResults.allPermissions;
 
@@ -374,49 +374,59 @@ export function buildAvailableActions(permissionResults) {
     });
   }
 
-  // CloudWatch Logs extraction - requires logs:DescribeLogGroups permission
+  // CloudWatch Logs extraction - requires permission AND actual log groups
   if (
     permissions.some((p) => matchesPermission(p, "logs:DescribeLogGroups"))
   ) {
-    actions.push({
-      id: "17",
-      name: "Extract CloudWatch Logs & Search for Secrets",
-      description: "Download CloudWatch logs and scan for credentials/secrets",
-      service: "CloudWatch Logs",
-      dangerous: true,
-      handler: async (rl) => {
-        logInfo("This will scan CloudWatch logs for sensitive information...");
-        logSeparator();
-        const scanAll = await askQuestion(
-          rl,
-          `${COLORS.cyan}Scan all log groups? (y/n) [default: y]: ${COLORS.reset}`
-        );
+    // Check if there are actually log groups before showing this option
+    try {
+      const { listLogGroups } = await import("./cloudwatch.js");
+      const logGroups = await listLogGroups();
 
-        let results;
-        if (scanAll.toLowerCase() === "n" || scanAll.toLowerCase() === "no") {
-          const logGroupName = await askQuestion(
-            rl,
-            `${COLORS.cyan}Enter log group name to scan: ${COLORS.reset}`
-          );
-          if (logGroupName) {
-            results = await scanCloudWatchLogs(logGroupName, 3, 100);
-          }
-        } else {
-          results = await scanCloudWatchLogs(null, 3, 100);
-        }
+      if (logGroups && logGroups.length > 0) {
+        actions.push({
+          id: "17",
+          name: "Extract CloudWatch Logs & Search for Secrets",
+          description: "Download CloudWatch logs and scan for credentials/secrets",
+          service: "CloudWatch Logs",
+          dangerous: true,
+          handler: async (rl) => {
+            logInfo("This will scan CloudWatch logs for sensitive information...");
+            logSeparator();
+            const scanAll = await askQuestion(
+              rl,
+              `${COLORS.cyan}Scan all log groups? (y/n) [default: y]: ${COLORS.reset}`
+            );
 
-        if (results && results.secretsFound.length > 0) {
-          logSeparator();
-          const exportChoice = await askQuestion(
-            rl,
-            `${COLORS.cyan}Export findings to file? (y/n) [default: y]: ${COLORS.reset}`
-          );
-          if (exportChoice.toLowerCase() !== "n" && exportChoice.toLowerCase() !== "no") {
-            exportCloudWatchFindings(results);
-          }
-        }
-      },
-    });
+            let results;
+            if (scanAll.toLowerCase() === "n" || scanAll.toLowerCase() === "no") {
+              const logGroupName = await askQuestion(
+                rl,
+                `${COLORS.cyan}Enter log group name to scan: ${COLORS.reset}`
+              );
+              if (logGroupName) {
+                results = await scanCloudWatchLogs(logGroupName, 3, 100);
+              }
+            } else {
+              results = await scanCloudWatchLogs(null, 3, 100);
+            }
+
+            if (results && results.secretsFound.length > 0) {
+              logSeparator();
+              const exportChoice = await askQuestion(
+                rl,
+                `${COLORS.cyan}Export findings to file? (y/n) [default: y]: ${COLORS.reset}`
+              );
+              if (exportChoice.toLowerCase() !== "n" && exportChoice.toLowerCase() !== "no") {
+                exportCloudWatchFindings(results);
+              }
+            }
+          },
+        });
+      }
+    } catch (error) {
+      // No log groups available or error checking - don't add to menu
+    }
   }
 
   // Always available: Shell command execution
@@ -503,7 +513,7 @@ export function displayMenu(actions) {
 }
 
 export async function runInteractiveMenu(permissionResults) {
-  const actions = buildAvailableActions(permissionResults);
+  const actions = await buildAvailableActions(permissionResults);
 
   if (actions.length === 0) {
     displayMenu(actions);
