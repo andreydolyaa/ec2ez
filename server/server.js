@@ -320,6 +320,7 @@ app.post('/api/start', async (req, res) => {
     emitLog('info', 'Converting metadata to tree structure...');
     const metadataTree = buildMetadataTree(metadata);
     emitLog('success', `✓ Metadata tree built with ${Object.keys(metadataTree).length} root nodes`);
+    emitLog('info', `Tree root keys: ${Object.keys(metadataTree).slice(0, 10).join(', ')}${Object.keys(metadataTree).length > 10 ? '...' : ''}`);
 
     // Scan metadata for secrets/credentials
     emitLog('info', 'Scanning metadata for secrets and credentials...');
@@ -369,11 +370,13 @@ app.post('/api/start', async (req, res) => {
     try {
       const s3Results = await s3discovery.testS3Access();
       if (s3Results.buckets && s3Results.buckets.length > 0) {
-        emitLog('success', `✓ Found ${s3Results.buckets.length} accessible S3 buckets`);
-        emitLog('info', `S3 buckets: ${s3Results.buckets.slice(0, 5).join(', ')}${s3Results.buckets.length > 5 ? ` and ${s3Results.buckets.length - 5} more...` : ''}`);
+        // Extract bucket names (handle both string arrays and object arrays)
+        const bucketNames = s3Results.buckets.map(b => typeof b === 'string' ? b : b.Name || b.name || String(b));
+        emitLog('success', `✓ Found ${bucketNames.length} accessible S3 buckets`);
+        emitLog('info', `S3 buckets: ${bucketNames.slice(0, 5).join(', ')}${bucketNames.length > 5 ? ` and ${bucketNames.length - 5} more...` : ''}`);
         emitLog('info', 'You can now explore these buckets in the UI');
         io.emit('sessionUpdate', {
-          s3Buckets: s3Results.buckets,
+          s3Buckets: bucketNames,
         });
       } else {
         emitLog('info', 'No S3 buckets found or no s3:ListAllMyBuckets permission');
