@@ -128,14 +128,16 @@ button:disabled {
 }
 
 .btn-primary {
-  background: var(--accent-blue);
-  border-color: var(--accent-blue);
-  color: #000;
+  background: #1e40af;
+  border-color: #1e3a8a;
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #4493e6;
-  border-color: #4493e6;
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
 }
 
 .btn-success {
@@ -151,8 +153,8 @@ button:disabled {
 }
 
 .btn-sm {
-  font-size: 12px;
-  padding: 4px 10px;
+  font-size: 11px;
+  padding: 3px 8px;
 }
 
 /* Input */

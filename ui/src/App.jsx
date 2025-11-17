@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import axios from 'axios';
 import Terminal from './components/Terminal';
 import ResultsPanel from './components/ResultsPanel';
+import ProgressBar from './components/ProgressBar';
 import './App.css';
 import './styles/theme.css';
 
@@ -25,6 +26,12 @@ export default function App() {
     imdsToken: null,
     credentials: null,
   });
+  const [progress, setProgress] = useState({
+    currentStep: 0,
+    totalSteps: 7,
+    stepName: '',
+    isComplete: false,
+  });
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
@@ -37,11 +44,29 @@ export default function App() {
 
     newSocket.on('sessionUpdate', (data) => {
       console.log('[SESSION UPDATE]', data);
+
+      // Debug metadata specifically
+      if (data.metadataTree) {
+        console.log('[SESSION UPDATE] Metadata Tree Keys:', Object.keys(data.metadataTree));
+        console.log('[SESSION UPDATE] Metadata Tree:', data.metadataTree);
+      }
+      if (data.metadataDetails) {
+        console.log('[SESSION UPDATE] Metadata Details Count:', Object.keys(data.metadataDetails).length);
+        console.log('[SESSION UPDATE] Metadata Details Sample:', Object.keys(data.metadataDetails).slice(0, 10));
+      }
+      if (data.metadata !== undefined) {
+        console.log('[SESSION UPDATE] Metadata Count:', data.metadata);
+      }
+
       setSessionData((prev) => ({ ...prev, ...data }));
     });
 
     newSocket.on('exploitationComplete', () => {
       setIsRunning(false);
+    });
+
+    newSocket.on('progress', (data) => {
+      setProgress((prev) => ({ ...prev, ...data }));
     });
 
     return () => newSocket.close();
@@ -53,6 +78,12 @@ export default function App() {
 
     setIsRunning(true);
     setLogs([]);
+    setProgress({
+      currentStep: 0,
+      totalSteps: 7,
+      stepName: '',
+      isComplete: false,
+    });
     setSessionData({
       roles: [],
       permissions: null,
@@ -131,6 +162,13 @@ export default function App() {
               )}
             </button>
           </form>
+
+          <ProgressBar
+            currentStep={progress.currentStep}
+            totalSteps={progress.totalSteps}
+            stepName={progress.stepName}
+            isComplete={progress.isComplete}
+          />
 
           <Terminal logs={logs} />
         </div>

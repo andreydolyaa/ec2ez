@@ -10,7 +10,7 @@
 }
 
 .results-header h3 {
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
   font-weight: 600;
 }
@@ -49,12 +49,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: var(--bg-tertiary);
   border: none;
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   transition: background 0.15s;
 }
@@ -76,6 +76,9 @@
   border-radius: 4px;
   font-size: 11px;
   word-break: break-all;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .role-list,
@@ -156,7 +159,14 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
-  font-size: 12px;
+  font-size: 11px;
+}
+
+.cred-grid code {
+  word-break: break-all;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .perm-list {
@@ -174,7 +184,7 @@
 }
 
 .dangerous-perms h4 {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--accent-red);
   margin-bottom: 8px;
 }
@@ -464,4 +474,59 @@
   color: var(--text-secondary);
   font-size: 10px;
   font-style: italic;
+}
+
+/* S3 Objects List */
+.s3-objects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.s3-object-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  gap: 12px;
+  transition: background 0.15s;
+}
+
+.s3-object-item:hover {
+  background: var(--bg-hover);
+}
+
+.s3-object-key {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.s3-object-number {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.s3-object-key code {
+  font-size: 11px;
+  background: transparent;
+  padding: 0;
+  word-break: break-all;
+  color: var(--text-primary);
+}
+
+/* Bucket actions (View Objects, Upload buttons) */
+.bucket-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }

