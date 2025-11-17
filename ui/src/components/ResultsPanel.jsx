@@ -297,6 +297,7 @@ export default function ResultsPanel({ sessionData, isRunning }) {
           <MetadataTreeSection
             metadataTree={sessionData.metadataTree}
             metadataCount={sessionData.metadata}
+            metadataDetails={sessionData.metadataDetails}
             expanded={expandedSection === 'metadataTree'}
             onToggle={() => toggleSection('metadataTree')}
             onViewValue={(path, value) => setModalData({ title: path, content: String(value) })}

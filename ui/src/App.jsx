@@ -37,6 +37,20 @@ export default function App() {
 
     newSocket.on('sessionUpdate', (data) => {
       console.log('[SESSION UPDATE]', data);
+
+      // Debug metadata specifically
+      if (data.metadataTree) {
+        console.log('[SESSION UPDATE] Metadata Tree Keys:', Object.keys(data.metadataTree));
+        console.log('[SESSION UPDATE] Metadata Tree:', data.metadataTree);
+      }
+      if (data.metadataDetails) {
+        console.log('[SESSION UPDATE] Metadata Details Count:', Object.keys(data.metadataDetails).length);
+        console.log('[SESSION UPDATE] Metadata Details Sample:', Object.keys(data.metadataDetails).slice(0, 10));
+      }
+      if (data.metadata !== undefined) {
+        console.log('[SESSION UPDATE] Metadata Count:', data.metadata);
+      }
+
       setSessionData((prev) => ({ ...prev, ...data }));
     });
 
