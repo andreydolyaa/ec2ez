@@ -76,6 +76,9 @@
   border-radius: 4px;
   font-size: 11px;
   word-break: break-all;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .role-list,
@@ -157,6 +160,13 @@
   grid-template-columns: 1fr;
   gap: 8px;
   font-size: 12px;
+}
+
+.cred-grid code {
+  word-break: break-all;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .perm-list {

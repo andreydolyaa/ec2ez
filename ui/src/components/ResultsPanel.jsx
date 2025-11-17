@@ -88,50 +88,63 @@ export default function ResultsPanel({ sessionData, isRunning }) {
     }
   }, [sessionData.s3Buckets]);
 
+  // Auto-expand metadata tree when it becomes available
+  useEffect(() => {
+    if (sessionData.metadataTree && Object.keys(sessionData.metadataTree).length > 0) {
+      console.log('[AUTO-EXPAND] IMDS Metadata Tree');
+      setExpandedSection('metadataTree');
+    }
+  }, [sessionData.metadataTree]);
+
   // Auto-fetch data when permissions become available
   useEffect(() => {
     if (!sessionData.permissions) return;
 
     const perms = sessionData.permissions.allPermissions || [];
-    const hasPermission = (perm) => perms.some(p => p === perm || p === perm.split(':')[0] + ':*' || p === '*');
+    const checkPerm = (perm) => perms.some(p => p === perm || p === perm.split(':')[0] + ':*' || p === '*');
 
     // Auto-fetch IAM users
-    if (hasPermission('iam:ListUsers') && !fetchedData.has('iamUsers')) {
-      setFetchedData(prev => new Set(prev).add('iamUsers'));
+    if (checkPerm('iam:ListUsers') && !fetchedData.has('iamUsers')) {
+      console.log('[AUTO-FETCH] IAM Users');
+      setFetchedData(prev => new Set([...prev, 'iamUsers']));
       loadData('iamUsers', '/api/iam/users', 'users');
     }
 
     // Auto-fetch IAM roles
-    if (hasPermission('iam:ListRoles') && !fetchedData.has('iamRoles')) {
-      setFetchedData(prev => new Set(prev).add('iamRoles'));
+    if (checkPerm('iam:ListRoles') && !fetchedData.has('iamRoles')) {
+      console.log('[AUTO-FETCH] IAM Roles');
+      setFetchedData(prev => new Set([...prev, 'iamRoles']));
       loadData('iamRoles', '/api/iam/roles', 'roles');
     }
 
     // Auto-fetch Secrets Manager
-    if (hasPermission('secretsmanager:ListSecrets') && !fetchedData.has('secrets')) {
-      setFetchedData(prev => new Set(prev).add('secrets'));
+    if (checkPerm('secretsmanager:ListSecrets') && !fetchedData.has('secrets')) {
+      console.log('[AUTO-FETCH] Secrets Manager');
+      setFetchedData(prev => new Set([...prev, 'secrets']));
       loadData('secrets', '/api/secrets/list', 'secrets');
     }
 
     // Auto-fetch SSM Parameters
-    if (hasPermission('ssm:DescribeParameters') && !fetchedData.has('ssmParams')) {
-      setFetchedData(prev => new Set(prev).add('ssmParams'));
+    if (checkPerm('ssm:DescribeParameters') && !fetchedData.has('ssmParams')) {
+      console.log('[AUTO-FETCH] SSM Parameters');
+      setFetchedData(prev => new Set([...prev, 'ssmParams']));
       loadData('ssmParams', '/api/ssm/parameters', 'parameters');
     }
 
     // Auto-fetch Lambda Functions
-    if (hasPermission('lambda:ListFunctions') && !fetchedData.has('lambdaFunctions')) {
-      setFetchedData(prev => new Set(prev).add('lambdaFunctions'));
+    if (checkPerm('lambda:ListFunctions') && !fetchedData.has('lambdaFunctions')) {
+      console.log('[AUTO-FETCH] Lambda Functions');
+      setFetchedData(prev => new Set([...prev, 'lambdaFunctions']));
       loadData('lambdaFunctions', '/api/lambda/functions', 'functions');
     }
 
     // Auto-fetch EC2 Instances
-    if (hasPermission('ec2:DescribeInstances') && !fetchedData.has('ec2Instances')) {
-      setFetchedData(prev => new Set(prev).add('ec2Instances'));
+    if (checkPerm('ec2:DescribeInstances') && !fetchedData.has('ec2Instances')) {
+      console.log('[AUTO-FETCH] EC2 Instances');
+      setFetchedData(prev => new Set([...prev, 'ec2Instances']));
       loadData('ec2Instances', '/api/ec2/instances', 'instances');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionData.permissions]);
+  }, [sessionData.permissions, fetchedData]);
 
   const toggleSection = (section) => {
     setExpandedSection(expandedSection === section ? null : section);
@@ -158,11 +171,22 @@ export default function ResultsPanel({ sessionData, isRunning }) {
       const res = await axios.post(`${API_URL}/api/s3/list-objects`, { bucket, prefix: '' });
       const objects = res.data.objects || [];
       const objectsArray = Array.isArray(objects) ? objects : [];
-      setData(prev => ({ ...prev, selectedBucket: bucket, bucketObjects: objectsArray }));
-      setExpandedSection('s3-objects');
+
+      // Display in modal instead of section
+      const objectsList = objectsArray.length > 0
+        ? objectsArray.map((obj, idx) => `${idx + 1}. ${obj}`).join('\n')
+        : 'No objects found in this bucket';
+
+      setModalData({
+        title: `Objects in ${bucket} (${objectsArray.length} total)`,
+        content: objectsList
+      });
     } catch (error) {
       console.error('Error listing bucket objects:', error);
-      setData(prev => ({ ...prev, selectedBucket: bucket, bucketObjects: [] }));
+      setModalData({
+        title: `Error: ${bucket}`,
+        content: `Failed to list objects: ${error.message}`
+      });
     }
     setLoading(prev => ({ ...prev, bucketObjects: false }));
   };
@@ -512,27 +536,6 @@ export default function ResultsPanel({ sessionData, isRunning }) {
           </Section>
           )}
 
-          {/* S3 Bucket Objects (dynamic) */}
-          {data.selectedBucket && (
-            <Section
-              title={`Objects in ${data.selectedBucket}`}
-              badge={<span className="badge badge-info">{Array.isArray(data.bucketObjects) ? data.bucketObjects.length : 0} objects</span>}
-              expanded={expandedSection === 's3-objects'}
-              onToggle={() => toggleSection('s3-objects')}
-            >
-              {loading.bucketObjects ? (
-                <div className="loading"><span className="spinner"></span> Loading...</div>
-              ) : (Array.isArray(data.bucketObjects) && data.bucketObjects.length > 0) ? (
-                <ul className="resource-list">
-                  {data.bucketObjects.map((obj, idx) => (
-                    <li key={idx}><code>{obj}</code></li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted">No objects found</p>
-              )}
-            </Section>
-          )}
 
           {/* Secrets Manager - only show if has secretsmanager permission */}
           {hasPermission('secretsmanager:ListSecrets') && (
