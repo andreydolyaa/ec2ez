@@ -74,6 +74,20 @@ export function useAPIOperations(setModalData, loadData) {
     }
   }, []);
 
+  const uploadToSpecificBucket = useCallback(async (bucket) => {
+    const localPath = prompt('Enter local file path:');
+    if (!localPath) return;
+    const defaultKey = localPath.split('/').pop();
+    const key = prompt('Enter S3 key (path):', defaultKey);
+    if (!key) return;
+    try {
+      await axios.post(`${API_URL}/api/s3/upload`, { localPath, bucket, key });
+      alert(`Upload to ${bucket} initiated! Check terminal for progress.`);
+    } catch (error) {
+      alert(`Upload failed: ${error.message}`);
+    }
+  }, []);
+
   // Secrets & SSM Operations
   const viewSecretValue = useCallback(async (secretName) => {
     try {
@@ -146,6 +160,7 @@ export function useAPIOperations(setModalData, loadData) {
     downloadS3Object,
     downloadSpecificObject,
     uploadS3Object,
+    uploadToSpecificBucket,
     viewSecretValue,
     viewSSMParameter,
     createSSMParameter,

@@ -109,7 +109,7 @@ export default function ResultsPanel({ sessionData, isRunning }) {
 
           {/* AWS Resources */}
           {(hasPermission('s3:ListAllMyBuckets') || hasPermission('s3:ListBucket') || data.s3Buckets.length > 0) && (
-            <S3Section buckets={data.s3Buckets} loading={loading.s3Buckets} expanded={expandedSection === 's3'} onToggle={() => toggleSection('s3')} onListBuckets={() => loadData('s3Buckets', '/api/s3/buckets', 'buckets')} onViewObjects={(bucket) => api.listBucketObjects(bucket, setLoading)} onDownload={api.downloadS3Object} onUpload={api.uploadS3Object} />
+            <S3Section buckets={data.s3Buckets} loading={loading.s3Buckets} expanded={expandedSection === 's3'} onToggle={() => toggleSection('s3')} onListBuckets={() => loadData('s3Buckets', '/api/s3/buckets', 'buckets')} onViewObjects={(bucket) => api.listBucketObjects(bucket, setLoading)} onDownload={api.downloadS3Object} onUploadToBucket={api.uploadToSpecificBucket} />
           )}
 
           {hasPermission('secretsmanager:ListSecrets') && <ResourceListSection title="Secrets Manager" resources={data.secrets} loading={loading.secrets} expanded={expandedSection === 'secrets'} onToggle={() => toggleSection('secrets')} badgeColor="danger" renderItem={(secret) => (<><code>{secret}</code><button className="btn-link" onClick={() => api.viewSecretValue(secret)}>View Value</button></>)} />}

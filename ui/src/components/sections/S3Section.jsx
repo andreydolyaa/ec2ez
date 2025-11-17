@@ -13,8 +13,8 @@ import Section from '../common/Section';
  * - onToggle: function - Toggle callback
  * - onListBuckets: function - Callback to list all buckets
  * - onViewObjects: function - Callback to view objects in a bucket
- * - onDownload: function - Callback to download an object
- * - onUpload: function - Callback to upload an object
+ * - onDownload: function - Callback to download an object (generic)
+ * - onUploadToBucket: function - Callback to upload to specific bucket
  */
 export default function S3Section({
   buckets,
@@ -24,7 +24,7 @@ export default function S3Section({
   onListBuckets,
   onViewObjects,
   onDownload,
-  onUpload
+  onUploadToBucket
 }) {
   const badge = buckets.length > 0 ? (
     <span className="badge badge-info">{buckets.length} buckets</span>
@@ -43,24 +43,33 @@ export default function S3Section({
               Refresh Buckets
             </button>
             <button className="btn-primary btn-sm" onClick={onDownload}>
-              Download Object
-            </button>
-            <button className="btn-danger btn-sm" onClick={onUpload}>
-              Upload Object
+              Download Object (Generic)
             </button>
           </div>
           <ul className="resource-list">
-            {buckets.map((bucket, idx) => (
-              <li key={idx}>
-                <code>{typeof bucket === 'string' ? bucket : bucket.name}</code>
-                <button
-                  className="btn-link"
-                  onClick={() => onViewObjects(typeof bucket === 'string' ? bucket : bucket.name)}
-                >
-                  View Objects
-                </button>
-              </li>
-            ))}
+            {buckets.map((bucket, idx) => {
+              const bucketName = typeof bucket === 'string' ? bucket : bucket.name;
+              return (
+                <li key={idx}>
+                  <code>{bucketName}</code>
+                  <div className="bucket-actions">
+                    <button
+                      className="btn-link"
+                      onClick={() => onViewObjects(bucketName)}
+                    >
+                      View Objects
+                    </button>
+                    <button
+                      className="btn-danger btn-sm"
+                      onClick={() => onUploadToBucket(bucketName)}
+                      style={{ marginLeft: '8px' }}
+                    >
+                      ⬆ Upload
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </>
       )}

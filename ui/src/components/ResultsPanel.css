@@ -523,3 +523,10 @@
   word-break: break-all;
   color: var(--text-primary);
 }
+
+/* Bucket actions (View Objects, Upload buttons) */
+.bucket-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
