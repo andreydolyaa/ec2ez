@@ -19,16 +19,30 @@ export function useAPIOperations(setModalData, loadData) {
       const res = await axios.post(`${API_URL}/api/s3/list-objects`, { bucket, prefix: '' });
       const objects = res.data.objects || [];
       const objectsArray = Array.isArray(objects) ? objects : [];
-      const objectsList = objectsArray.length > 0
-        ? objectsArray.map((obj, idx) => `${idx + 1}. ${obj}`).join('\n')
-        : 'No objects found in this bucket';
-      setModalData({ title: `Objects in ${bucket} (${objectsArray.length} total)`, content: objectsList });
+      // Return data for modal to render S3ObjectsList component
+      setModalData({
+        type: 's3-objects',
+        title: `Objects in ${bucket} (${objectsArray.length} total)`,
+        bucket,
+        objects: objectsArray
+      });
     } catch (error) {
       console.error('Error listing bucket objects:', error);
       setModalData({ title: `Error: ${bucket}`, content: `Failed to list objects: ${error.message}` });
     }
     setLoading(prev => ({ ...prev, bucketObjects: false }));
   }, [setModalData]);
+
+  const downloadSpecificObject = useCallback(async (bucket, key) => {
+    const outputPath = prompt(`Enter local save path for ${key}:`, `./${key.split('/').pop()}`);
+    if (!outputPath) return;
+    try {
+      await axios.post(`${API_URL}/api/s3/download`, { bucket, key, outputPath });
+      alert(`Download initiated for ${key}! Check terminal for progress.`);
+    } catch (error) {
+      alert(`Download failed: ${error.message}`);
+    }
+  }, []);
 
   const downloadS3Object = useCallback(async () => {
     const bucket = prompt('Enter bucket name:');
@@ -130,6 +144,7 @@ export function useAPIOperations(setModalData, loadData) {
   return {
     listBucketObjects,
     downloadS3Object,
+    downloadSpecificObject,
     uploadS3Object,
     viewSecretValue,
     viewSSMParameter,

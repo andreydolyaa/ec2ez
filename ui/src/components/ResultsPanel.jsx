@@ -16,6 +16,7 @@ import AccountInfoSection from './sections/AccountInfoSection';
 import MetadataTreeSection from './sections/MetadataTreeSection';
 import PermissionsSection from './sections/PermissionsSection';
 import S3Section from './sections/S3Section';
+import S3ObjectsList from './sections/S3ObjectsList';
 import ResourceListSection from './sections/ResourceListSection';
 import Section from './common/Section';
 
@@ -128,7 +129,15 @@ export default function ResultsPanel({ sessionData, isRunning }) {
         </div>
       )}
 
-      <Modal title={modalData?.title} content={modalData?.content} onClose={() => setModalData(null)} />
+      <Modal title={modalData?.title} content={modalData?.content} onClose={() => setModalData(null)}>
+        {modalData?.type === 's3-objects' && (
+          <S3ObjectsList
+            objects={modalData.objects}
+            bucket={modalData.bucket}
+            onDownload={api.downloadSpecificObject}
+          />
+        )}
+      </Modal>
     </div>
   );
 }

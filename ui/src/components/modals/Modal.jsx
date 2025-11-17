@@ -7,11 +7,12 @@ import React from 'react';
  *
  * Props:
  * - title: string - Modal title
- * - content: string - Modal content (text/code)
+ * - content: string - Modal content (text/code) - displayed in <pre>
+ * - children: ReactNode - Custom content (takes precedence over content)
  * - onClose: function - Callback to close modal
  */
-export default function Modal({ title, content, onClose }) {
-  if (!title && !content) return null;
+export default function Modal({ title, content, children, onClose }) {
+  if (!title && !content && !children) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -21,7 +22,7 @@ export default function Modal({ title, content, onClose }) {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          <pre>{content}</pre>
+          {children || <pre>{content}</pre>}
         </div>
       </div>
     </div>
