@@ -149,7 +149,10 @@ export function useAPIOperations(setModalData, loadData) {
     if (!confirm('This will download ALL secrets and SSM parameters. Continue?')) return;
     try {
       const res = await axios.post(`${API_URL}/api/bulk/extract-secrets`);
-      setModalData({ title: 'Bulk Extraction Results', content: res.data.summary });
+      const summary = res.data.summary;
+      // Ensure content is stringified if it's an object
+      const content = typeof summary === 'object' ? JSON.stringify(summary, null, 2) : String(summary);
+      setModalData({ title: 'Bulk Extraction Results', content });
     } catch (error) {
       alert(`Extraction failed: ${error.message}`);
     }

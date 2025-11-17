@@ -10,7 +10,7 @@
 }
 
 .results-header h3 {
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
   font-weight: 600;
 }
@@ -49,12 +49,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: var(--bg-tertiary);
   border: none;
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
   transition: background 0.15s;
 }
@@ -159,7 +159,7 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .cred-grid code {
@@ -184,7 +184,7 @@
 }
 
 .dangerous-perms h4 {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--accent-red);
   margin-bottom: 8px;
 }
