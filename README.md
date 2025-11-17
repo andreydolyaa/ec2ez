@@ -94,6 +94,10 @@ tests/
 ```bash
 node ec2ez.js <ssrf-endpoint-url>
 ```
+Or
+```bash
+node ec2ez.js --ui
+```
 
 ### Help
 
