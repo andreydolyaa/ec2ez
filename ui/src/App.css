@@ -63,7 +63,7 @@
 }
 
 .side-panel {
-  width: 400px;
+  width: 500px;
   border-left: 1px solid var(--border-primary);
   background: var(--bg-secondary);
   overflow-y: auto;

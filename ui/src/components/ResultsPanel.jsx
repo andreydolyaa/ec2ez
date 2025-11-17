@@ -122,6 +122,9 @@ export default function ResultsPanel({ sessionData, isRunning }) {
           {/* Advanced Operations */}
           <Section title="Advanced Operations" badge={<span className="badge badge-danger">SENSITIVE</span>} expanded={expandedSection === 'advanced'} onToggle={() => toggleSection('advanced')}>
             <div className="action-buttons-vertical">
+              {hasPermission('ec2:RunInstances') && (
+                <button className="btn-primary btn-sm" onClick={api.launchEC2Instance}>🚀 Launch EC2 Instance</button>
+              )}
               {(hasPermission('secretsmanager:ListSecrets') || hasPermission('ssm:DescribeParameters')) && (
                 <button className="btn-danger btn-sm" onClick={api.extractAllSecrets}>Extract All Secrets & Parameters</button>
               )}

@@ -128,14 +128,16 @@ button:disabled {
 }
 
 .btn-primary {
-  background: #8b5cf6;
-  border-color: #8b5cf6;
+  background: #1e40af;
+  border-color: #1e3a8a;
   color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #7c3aed;
-  border-color: #7c3aed;
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
 }
 
 .btn-success {

@@ -30,7 +30,7 @@
   padding: 12px;
   font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 1.3;
+  line-height: 1.2;
 }
 
 .terminal-empty {
@@ -85,7 +85,7 @@
 }
 
 .log-info .line-msg {
-  color: var(--accent-blue);
+  color: #ffffff;
 }
 
 .log-danger .line-msg {

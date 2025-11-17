@@ -158,6 +158,18 @@ export function useAPIOperations(setModalData, loadData) {
     }
   }, [setModalData]);
 
+  const launchEC2Instance = useCallback(async () => {
+    if (!confirm('Launch a new EC2 instance with auto-detected settings?')) return;
+    try {
+      const res = await axios.post(`${API_URL}/api/ec2/launch`);
+      const instanceData = JSON.stringify(res.data.instance, null, 2);
+      setModalData({ title: 'EC2 Instance Launched', content: instanceData });
+      alert('EC2 instance launched successfully!');
+    } catch (error) {
+      alert(`Failed to launch EC2 instance: ${error.message}`);
+    }
+  }, [setModalData]);
+
   return {
     listBucketObjects,
     downloadS3Object,
@@ -170,5 +182,6 @@ export function useAPIOperations(setModalData, loadData) {
     invokeLambdaFunction,
     runShellCommand,
     extractAllSecrets,
+    launchEC2Instance,
   };
 }

