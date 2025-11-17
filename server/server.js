@@ -703,14 +703,15 @@ io.on('connection', (socket) => {
   });
 });
 
+const HOST = "0.0.0.0";
 const PORT = process.env.PORT || 3006;
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, HOST, () => {
   console.log('========================================');
   console.log('EC2EZ Server Started');
   console.log('========================================');
-  console.log(`Server URL: http://localhost:${PORT}`);
-  console.log(`API Endpoints: http://localhost:${PORT}/api/*`);
-  console.log(`WebSocket: ws://localhost:${PORT}`);
+  console.log(`Server URL: http://${HOST}:${PORT}`);
+  console.log(`API Endpoints: http://${HOST}:${PORT}/api/*`);
+  console.log(`WebSocket: ws://${HOST}:${PORT}`);
   console.log('========================================');
   console.log('Ready to accept connections...');
   console.log('========================================');
